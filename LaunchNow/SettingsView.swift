@@ -6,6 +6,8 @@ import SwiftData
 struct SettingsView: View {
     @ObservedObject var appStore: AppStore
     @State private var showResetConfirm = false
+    @State private var showResetAppsConfirm = false
+    @State private var isImportSheetPresented = false
 
     var body: some View {
         VStack {
@@ -40,21 +42,17 @@ struct SettingsView: View {
                 HStack {
                     Text("Classic Launchpad (Fullscreen)")
                     Spacer()
-                    Toggle(isOn: $appStore.isFullscreenMode) {
-                        
-                    }
-                    .toggleStyle(.switch)
+                    Toggle(isOn: $appStore.isFullscreenMode) { }
+                        .toggleStyle(.switch)
                 }
                 HStack {
                     Text("Scrolling sensitivity")
                     VStack {
                         Slider(value: $appStore.scrollSensitivity, in: 0.01...0.99)
                         HStack {
-                            Text("Low")
-                                .font(.footnote)
+                            Text("Low").font(.footnote)
                             Spacer()
-                            Text("High")
-                                .font(.footnote)
+                            Text("High").font(.footnote)
                         }
                     }
                 }
@@ -63,7 +61,21 @@ struct SettingsView: View {
             
             Divider()
             
-            HStack {
+            HStack(spacing: 12) {
+                Button {
+                    // เตรียม availableApps หากยังไม่มี
+                    if appStore.availableApps.isEmpty {
+                        appStore.performInitialScanIfNeeded()
+                    }
+                    isImportSheetPresented = true
+                } label: {
+                    Label("Import App", systemImage: "square.and.arrow.down.on.square")
+                }
+                .sheet(isPresented: $isImportSheetPresented) {
+                    ImportAppsSheet(appStore: appStore, isPresented: $isImportSheetPresented)
+                        .frame(minWidth: 560, minHeight: 640)
+                }
+                
                 Button {
                     exportDataFolder()
                 } label: {
@@ -90,6 +102,19 @@ struct SettingsView: View {
                 Spacer()
 
                 Button {
+                    showResetAppsConfirm = true
+                } label: {
+                    Label("Reset App", systemImage: "trash")
+                        .foregroundStyle(Color.red)
+                }
+                .alert("Clear all apps from Launchpad?", isPresented: $showResetAppsConfirm) {
+                    Button("Clear", role: .destructive) { appStore.resetImportedApps() }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("This will remove all apps, folders and layout from Launchpad. Your applications on disk are not affected.")
+                }
+                
+                Button {
                     showResetConfirm = true
                 } label: {
                     Label("Reset Layout", systemImage: "arrow.counterclockwise")
@@ -99,7 +124,7 @@ struct SettingsView: View {
                     Button("Reset", role: .destructive) { appStore.resetLayout() }
                     Button("Cancel", role: .cancel) {}
                 } message: {
-                    Text("This will completely reset the layout: remove all folders, clear saved order, and rescan all applications. All customizations will be lost.")
+                    Text("This will reset layout and rescan available apps. It won’t auto-add apps to Launchpad.")
                 }
                                 
                 Button {
@@ -110,13 +135,18 @@ struct SettingsView: View {
                 }
             }
             .padding()
-
         }
         .padding()
+        .onAppear {
+            // สแกนรายชื่อแอปล่วงหน้าเพื่อให้พร้อมในแผง Import
+            if appStore.availableApps.isEmpty {
+                appStore.performInitialScanIfNeeded()
+            }
+        }
     }
     
     func getVersion() -> String {
-            return Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "未知"
+        return Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "未知"
     }
 
     // MARK: - Export / Import Application Support Data
@@ -147,9 +177,7 @@ struct SettingsView: View {
                 let destDir = destParent.appendingPathComponent(folderName, isDirectory: true)
                 try copyDirectory(from: sourceDir, to: destDir)
             }
-        } catch {
-            // 忽略错误或可在此添加用户提示
-        }
+        } catch { }
     }
 
     private func importDataFolder() {
@@ -162,18 +190,13 @@ struct SettingsView: View {
         panel.message = "Choose a folder previously exported from LaunchNow"
         if panel.runModal() == .OK, let srcDir = panel.url {
             do {
-                // 验证是否为有效的排序数据目录
                 guard isValidExportFolder(srcDir) else { return }
                 let destDir = try supportDirectoryURL()
-                // 若用户选的就是目标目录，跳过
                 if srcDir.standardizedFileURL == destDir.standardizedFileURL { return }
                 try replaceDirectory(with: srcDir, at: destDir)
-                // 导入完成后加载并刷新
                 appStore.applyOrderAndFolders()
                 appStore.refresh()
-            } catch {
-                // 忽略错误或可在此添加用户提示
-            }
+            } catch { }
         }
     }
 
@@ -187,7 +210,6 @@ struct SettingsView: View {
 
     private func replaceDirectory(with src: URL, at dst: URL) throws {
         let fm = FileManager.default
-        // 确保父目录存在
         let parent = dst.deletingLastPathComponent()
         if !fm.fileExists(atPath: parent.path) {
             try fm.createDirectory(at: parent, withIntermediateDirectories: true)
@@ -202,7 +224,6 @@ struct SettingsView: View {
         let fm = FileManager.default
         let storeURL = folder.appendingPathComponent("Data.store")
         guard fm.fileExists(atPath: storeURL.path) else { return false }
-        // 尝试打开该库并检查是否有排序数据
         do {
             let config = ModelConfiguration(url: storeURL)
             let container = try ModelContainer(for: TopItemData.self, PageEntryData.self, configurations: config)
@@ -213,6 +234,94 @@ struct SettingsView: View {
             return !legacyEntries.isEmpty
         } catch {
             return false
+        }
+    }
+}
+
+struct ImportAppsSheet: View {
+    @ObservedObject var appStore: AppStore
+    @Binding var isPresented: Bool
+    @State private var selection = Set<String>() // ใช้ path เป็น key
+    @State private var searchText: String = ""
+
+    private var filteredApps: [AppInfo] {
+        guard !searchText.isEmpty else { return appStore.availableApps }
+        return appStore.availableApps.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+    }
+
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Text("Select applications to add to Launchpad")
+                    .font(.headline)
+                Spacer()
+                TextField("Search apps", text: $searchText)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 260)
+            }
+            .padding(.horizontal)
+
+            // แสดงรายการพร้อม Checkbox
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 6) {
+                    ForEach(filteredApps, id: \.id) { app in
+                        HStack(spacing: 10) {
+                            Toggle(isOn: Binding(
+                                get: { selection.contains(app.id) },
+                                set: { isOn in
+                                    if isOn { selection.insert(app.id) }
+                                    else { selection.remove(app.id) }
+                                }
+                            )) {
+                                HStack(spacing: 8) {
+                                    Image(nsImage: app.icon)
+                                        .resizable()
+                                        .interpolation(.high)
+                                        .antialiased(true)
+                                        .frame(width: 24, height: 24)
+                                    Text(app.name)
+                                        .lineLimit(1)
+                                    Spacer()
+                                    Text(app.url.deletingPathExtension().lastPathComponent)
+                                        .foregroundColor(.secondary)
+                                        .font(.footnote)
+                                }
+                            }
+                            .toggleStyle(.checkbox)
+                        }
+                        .padding(.horizontal)
+                        .help(app.url.path)
+                    }
+                }
+                .padding(.vertical, 6)
+            }
+            .frame(minHeight: 460)
+
+            HStack {
+                Button("Select All") {
+                    selection = Set(filteredApps.map { $0.id })
+                }
+                Button("Clear") {
+                    selection.removeAll()
+                }
+                Spacer()
+                Button("Cancel") {
+                    isPresented = false
+                }
+                Button("Import") {
+                    let selectedInfos = appStore.availableApps.filter { selection.contains($0.id) }
+                    appStore.importSelectedApps(fromAppInfos: selectedInfos)
+                    isPresented = false
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(selection.isEmpty)
+            }
+            .padding(.horizontal)
+            .padding(.bottom, 12)
+        }
+        .onReceive(appStore.$availableApps) { _ in
+            // ล้าง selection ที่ไม่อยู่ในรายการ (กรณีสแกนอัปเดต)
+            selection = selection.filter { id in appStore.availableApps.contains { $0.id == id } }
         }
     }
 }
