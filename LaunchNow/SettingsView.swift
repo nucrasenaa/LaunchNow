@@ -8,6 +8,7 @@ struct SettingsView: View {
     @State private var showResetConfirm = false
     @State private var showResetAppsConfirm = false
     @State private var isImportSheetPresented = false
+    @State private var isRemoveSheetPresented = false
 
     var body: some View {
         VStack {
@@ -73,6 +74,17 @@ struct SettingsView: View {
                 }
                 .sheet(isPresented: $isImportSheetPresented) {
                     ImportAppsSheet(appStore: appStore, isPresented: $isImportSheetPresented)
+                        .frame(minWidth: 560, minHeight: 640)
+                }
+                
+                Button {
+                    // 打开移除应用的面板
+                    isRemoveSheetPresented = true
+                } label: {
+                    Label("Remove App", systemImage: "trash.slash")
+                }
+                .sheet(isPresented: $isRemoveSheetPresented) {
+                    RemoveAppsSheet(appStore: appStore, isPresented: $isRemoveSheetPresented)
                         .frame(minWidth: 560, minHeight: 640)
                 }
                 
@@ -322,6 +334,128 @@ struct ImportAppsSheet: View {
         .onReceive(appStore.$availableApps) { _ in
             // ล้าง selection ที่ไม่อยู่ในรายการ (กรณีสแกนอัปเดต)
             selection = selection.filter { id in appStore.availableApps.contains { $0.id == id } }
+        }
+    }
+}
+
+struct RemoveAppsSheet: View {
+    @ObservedObject var appStore: AppStore
+    @Binding var isPresented: Bool
+    @State private var selection = Set<String>() // use app path as key
+    @State private var searchText: String = ""
+    @State private var includeFolderApps: Bool = true
+
+    private var allAppsInLaunchpad: [AppInfo] {
+        var list: [AppInfo] = []
+        // top-level apps
+        list.append(contentsOf: appStore.apps)
+        if includeFolderApps {
+            // apps inside folders
+            for folder in appStore.folders {
+                list.append(contentsOf: folder.apps)
+            }
+        }
+        // unique by path and sort by name
+        var unique: [AppInfo] = []
+        var seen = Set<String>()
+        for a in list {
+            if !seen.contains(a.id) {
+                seen.insert(a.id)
+                unique.append(a)
+            }
+        }
+        return unique.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    private var filteredApps: [AppInfo] {
+        guard !searchText.isEmpty else { return allAppsInLaunchpad }
+        return allAppsInLaunchpad.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+    }
+
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Text("Select applications to remove from Launchpad")
+                    .font(.headline)
+                Spacer()
+                TextField("Search apps", text: $searchText)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 260)
+            }
+            .padding(.horizontal)
+
+            HStack {
+                Toggle("Include apps inside folders", isOn: $includeFolderApps)
+                Spacer()
+            }
+            .padding(.horizontal)
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 6) {
+                    ForEach(filteredApps, id: \.id) { app in
+                        HStack(spacing: 10) {
+                            Toggle(isOn: Binding(
+                                get: { selection.contains(app.id) },
+                                set: { isOn in
+                                    if isOn { selection.insert(app.id) }
+                                    else { selection.remove(app.id) }
+                                }
+                            )) {
+                                HStack(spacing: 8) {
+                                    Image(nsImage: app.icon)
+                                        .resizable()
+                                        .interpolation(.high)
+                                        .antialiased(true)
+                                        .frame(width: 24, height: 24)
+                                    Text(app.name)
+                                        .lineLimit(1)
+                                    Spacer()
+                                    Text(app.url.deletingPathExtension().lastPathComponent)
+                                        .foregroundColor(.secondary)
+                                        .font(.footnote)
+                                }
+                            }
+                            .toggleStyle(.checkbox)
+                        }
+                        .padding(.horizontal)
+                        .help(app.url.path)
+                    }
+                }
+                .padding(.vertical, 6)
+            }
+            .frame(minHeight: 460)
+
+            HStack {
+                Button("Select All") {
+                    selection = Set(filteredApps.map { $0.id })
+                }
+                Button("Clear") {
+                    selection.removeAll()
+                }
+                Spacer()
+                Button("Cancel") {
+                    isPresented = false
+                }
+                Button("Remove") {
+                    let selectedInfos = allAppsInLaunchpad.filter { selection.contains($0.id) }
+                    appStore.removeSelectedApps(fromAppInfos: selectedInfos)
+                    isPresented = false
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(selection.isEmpty)
+            }
+            .padding(.horizontal)
+            .padding(.bottom, 12)
+        }
+        .onChange(of: includeFolderApps) { _ in
+            // reset selection when scope changes to avoid stale selections
+            selection.removeAll()
+        }
+        .onReceive(appStore.$apps) { _ in
+            selection = selection.filter { id in allAppsInLaunchpad.contains { $0.id == id } }
+        }
+        .onReceive(appStore.$folders) { _ in
+            selection = selection.filter { id in allAppsInLaunchpad.contains { $0.id == id } }
         }
     }
 }
