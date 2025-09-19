@@ -291,6 +291,54 @@ final class AppStore: ObservableObject {
         refreshCacheAfterFolderOperation()
     }
     
+    // NEW: Remove selected apps from Launchpad (mirror of import flow)
+    func removeSelectedApps(fromAppInfos appsToRemove: [AppInfo]) {
+        guard !appsToRemove.isEmpty else { return }
+        let removePaths = Set(appsToRemove.map { $0.url.path })
+        
+        // 1) Remove apps from folders
+        if !folders.isEmpty {
+            for fIdx in folders.indices {
+                folders[fIdx].apps.removeAll { removePaths.contains($0.url.path) }
+            }
+            // remove empty folders
+            folders.removeAll { $0.apps.isEmpty }
+        }
+        
+        // 2) Replace matching items with empty
+        for idx in items.indices {
+            switch items[idx] {
+            case .app(let a):
+                if removePaths.contains(a.url.path) {
+                    items[idx] = .empty(UUID().uuidString)
+                }
+            case .folder(let folder):
+                // if folder no longer exists after step 1, clear it
+                if folders.first(where: { $0.id == folder.id }) == nil {
+                    items[idx] = .empty(UUID().uuidString)
+                }
+            case .empty:
+                break
+            }
+        }
+        
+        // 3) Remove from top-level apps list
+        apps.removeAll { removePaths.contains($0.url.path) }
+        
+        // 4) Rebuild items to reflect updated folders and free apps
+        rebuildItems()
+        
+        // 5) Compact pages and remove empty pages
+        compactItemsWithinPages()
+        removeEmptyPages()
+        
+        // 6) Persist and refresh cache/UI
+        saveAllOrder()
+        triggerFolderUpdate()
+        triggerGridRefresh()
+        refreshCacheAfterFolderOperation()
+    }
+    
     // ปุ่ม Reset App: ล้างแอปใน Launchpad (apps/items/folders) และ persisted order แต่คง availableApps ไว้
     func resetImportedApps() {
         // close folder if open
