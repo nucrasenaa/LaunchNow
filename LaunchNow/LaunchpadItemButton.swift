@@ -109,10 +109,8 @@ struct LaunchpadItemButton: View {
         let timeSinceLastTap = now.timeIntervalSince(lastTapTime)
         
         if timeSinceLastTap <= doubleTapThreshold, let doubleClick = onDoubleClick {
-            // 双击
             doubleClick()
         } else {
-            // 单击
             onTap()
         }
         

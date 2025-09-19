@@ -291,7 +291,7 @@ struct LaunchpadView: View {
                                         }
                                         .animation(LNAnimations.gridUpdate, value: pendingDropIndex)
                                         .animation(LNAnimations.gridUpdate, value: appStore.gridRefreshTrigger)
-                                        .id(appStore.gridRefreshTrigger) // บังคับรีเฟรช layout เมื่อแถว/คอลัมน์เปลี่ยน
+                                        .id(appStore.gridRefreshTrigger) // บังคับรีเฟรช layout 当行/列变更或显式刷新
                                         .frame(maxHeight: .infinity, alignment: .top)
                                     }
                                     .frame(width: geo.size.width, height: geo.size.height)
@@ -300,7 +300,7 @@ struct LaunchpadView: View {
                             .offset(x: hStackOffset)
                             .opacity(isFolderOpen ? 0.1 : 1)
                             .allowsHitTesting(!isFolderOpen)
-                            .id(appStore.gridRefreshTrigger) // บังคับรีเฟรช pages container
+                            // 注意：不要在这里再使用 .id(appStore.gridRefreshTrigger)，避免整页容器重建
                             
 
                             // 将预览提升到外层坐标空间，避免受到 offset 影响
