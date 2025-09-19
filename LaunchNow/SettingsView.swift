@@ -10,6 +10,12 @@ struct SettingsView: View {
     @State private var isImportSheetPresented = false
     @State private var isRemoveSheetPresented = false
 
+    // คำนวณความสูงสูงสุดของแผง (80% ของความสูงหน้าจอที่มองเห็น)
+    private var sheetMaxHeight: CGFloat {
+        let h = NSScreen.main?.visibleFrame.height ?? 900
+        return h * 0.8
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
@@ -131,7 +137,8 @@ struct SettingsView: View {
                     }
                     .sheet(isPresented: $isImportSheetPresented) {
                         ImportAppsSheet(appStore: appStore, isPresented: $isImportSheetPresented)
-                            .frame(minWidth: 560, minHeight: 640)
+                            .frame(minWidth: 640, minHeight: 420)   // ลด minHeight ลงอีก
+                            .frame(maxHeight: sheetMaxHeight)       // จำกัดไม่เกิน 80% ของจอ
                     }
 
                     Button {
@@ -141,7 +148,8 @@ struct SettingsView: View {
                     }
                     .sheet(isPresented: $isRemoveSheetPresented) {
                         RemoveAppsSheet(appStore: appStore, isPresented: $isRemoveSheetPresented)
-                            .frame(minWidth: 560, minHeight: 640)
+                            .frame(minWidth: 640, minHeight: 420)   // ลด minHeight ลงอีก
+                            .frame(maxHeight: sheetMaxHeight)       // จำกัดไม่เกิน 80% ของจอ
                     }
 
                     Button {
@@ -216,8 +224,8 @@ struct SettingsView: View {
             }
             .padding(.vertical, 8)
         }
-        .padding(.horizontal) // ทำให้หัวข้อทุก section เริ่มต้นตำแหน่งเดียวกัน
-        .padding(.bottom)     // ระยะห่างด้านล่างรวม
+        .padding(.horizontal)
+        .padding(.bottom)
         .onAppear {
             if appStore.availableApps.isEmpty {
                 appStore.performInitialScanIfNeeded()
@@ -331,13 +339,17 @@ struct ImportAppsSheet: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            HStack {
+            HStack(alignment: .center) {
+                // Title with padding and bold
                 Text("Select applications to add to Launchpad")
-                    .font(.headline)
+                    .font(.headline.bold())
+                    .lineLimit(1)
+                    .layoutPriority(1)
+                    .padding(.vertical, 8)
                 Spacer()
                 TextField("Search apps", text: $searchText)
                     .textFieldStyle(.roundedBorder)
-                    .frame(width: 260)
+                    .frame(width: 300) // wider to avoid wrapping title
             }
             .padding(.horizontal)
 
@@ -374,7 +386,7 @@ struct ImportAppsSheet: View {
                 }
                 .padding(.vertical, 6)
             }
-            .frame(minHeight: 460)
+            .frame(minHeight: 320) // ลดส่วนแสดงรายการลงอีก
 
             HStack {
                 Button("Select All") {
@@ -396,7 +408,7 @@ struct ImportAppsSheet: View {
                 .disabled(selection.isEmpty)
             }
             .padding(.horizontal)
-            .padding(.bottom, 12)
+            .padding(.bottom, 10)
         }
         .onReceive(appStore.$availableApps) { _ in
             selection = selection.filter { id in appStore.availableApps.contains { $0.id == id } }
@@ -437,13 +449,17 @@ struct RemoveAppsSheet: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            HStack {
+            HStack(alignment: .center) {
+                // Title with padding and bold
                 Text("Select applications to remove from Launchpad")
-                    .font(.headline)
+                    .font(.headline.bold())
+                    .lineLimit(1)
+                    .layoutPriority(1)
+                    .padding(.vertical, 8)
                 Spacer()
                 TextField("Search apps", text: $searchText)
                     .textFieldStyle(.roundedBorder)
-                    .frame(width: 260)
+                    .frame(width: 300)
             }
             .padding(.horizontal)
 
@@ -486,7 +502,7 @@ struct RemoveAppsSheet: View {
                 }
                 .padding(.vertical, 6)
             }
-            .frame(minHeight: 460)
+            .frame(minHeight: 300) // ลดลงอีก
 
             HStack {
                 Button("Select All") {
@@ -508,7 +524,7 @@ struct RemoveAppsSheet: View {
                 .disabled(selection.isEmpty)
             }
             .padding(.horizontal)
-            .padding(.bottom, 12)
+            .padding(.bottom, 10)
         }
         .onChange(of: includeFolderApps) { _ in
             selection.removeAll()
