@@ -71,7 +71,7 @@ final class AppStore: ObservableObject {
     private let fsEventsQueue = DispatchQueue(label: "app.store.fsevents")
     
     // 计算属性
-    private var itemsPerPage: Int { 20 }
+    private var itemsPerPage: Int { 24 }
     
     private let applicationSearchPaths: [String] = [
         "/Applications",

@@ -232,10 +232,10 @@ final class AppCacheManager: ObservableObject {
         // 缓存网格布局相关的计算数据
         let layoutData = GridLayoutCacheData(
             totalItems: items.count,
-            itemsPerPage: 20,
-            columns: 5,
+            itemsPerPage: 24,
+            columns: 6,
             rows: 4,
-            pageCount: (items.count + 19) / 20
+            pageCount: (items.count + 23) / 24
         )
         let pageInfo = calculatePageInfo(for: items)
         let key = cacheKeyGenerator.generateGridLayoutKey(for: "main")
@@ -249,7 +249,7 @@ final class AppCacheManager: ObservableObject {
     
     /// 计算页面信息
     private func calculatePageInfo(for items: [LaunchpadItem]) -> [PageInfo] {
-        let itemsPerPage = 20
+        let itemsPerPage = 24
         let pageCount = (items.count + itemsPerPage - 1) / itemsPerPage
         
         var pages: [PageInfo] = []
@@ -356,4 +356,3 @@ struct CacheStatistics {
 struct PerformanceStats {
     let cacheSize: Int
 }
-

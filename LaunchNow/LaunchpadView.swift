@@ -993,7 +993,7 @@ extension LaunchpadView {
                                 // 使用统一的拖拽结束处理逻辑
                                 finalizeDragOperation(containerSize: containerSize, columnWidth: columnWidth, appHeight: appHeight, iconSize: iconSize)
 
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                                     draggingItem = nil
                                     pendingDropIndex = nil
                                     clampSelection()
@@ -1388,8 +1388,8 @@ struct GridConfig {
         self.isFullscreen = isFullscreen
     }
     
-    var itemsPerPage: Int { 20 }
-    var columns: Int { 5 }
+    var itemsPerPage: Int { 24 }
+    var columns: Int { 6 }
     var rows: Int { 4 }
     
     let maxBounce: CGFloat = 80
@@ -1817,3 +1817,4 @@ extension LaunchpadView {
         return result
     }
 }
+
