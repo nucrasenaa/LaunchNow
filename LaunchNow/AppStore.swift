@@ -962,21 +962,53 @@ final class AppStore: ObservableObject {
         saveAllOrder()
     }
     
-    // 一键重置布局（เก็บไว้ใช้รีเซ็ตทุกอย่างเดิม หากยังอยากใช้）
+    // 一键重置布局：仅同步实际存在的应用，移除已从系统删除的应用，保留既有布局与持久化顺序
     func resetLayout() {
+        // ปิดโฟลเดอร์ที่เปิดอยู่ แต่ไม่ล้าง apps/items/folders
         openFolder = nil
-        folders.removeAll()
-        clearAllPersistedData()
-        cacheManager.clearAllCaches()
-        hasPerformedInitialScan = false
-        items.removeAll()
-        // โหมดใหม่: ไม่ auto-populate แอป ให้เพียงสแกน availableApps
-        scanAvailableApplicationsOnly()
-        currentPage = 0
-        triggerFolderUpdate()
-        triggerGridRefresh()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            self?.refreshCacheAfterFolderOperation()
+        
+        // สแกนแอปที่มีอยู่ในระบบใหม่ แล้วซิงค์กับเลย์เอาต์ปัจจุบัน
+        DispatchQueue.global(qos: .userInitiated).async {
+            var found: [AppInfo] = []
+            var seenPaths = Set<String>()
+            for path in self.applicationSearchPaths {
+                let url = URL(fileURLWithPath: path)
+                if let enumerator = FileManager.default.enumerator(
+                    at: url,
+                    includingPropertiesForKeys: [.isDirectoryKey],
+                    options: [.skipsHiddenFiles, .skipsPackageDescendants]
+                ) {
+                    for case let item as URL in enumerator {
+                        let resolved = item.resolvingSymlinksInPath()
+                        guard resolved.pathExtension == "app",
+                              self.isValidApp(at: resolved),
+                              !self.isInsideAnotherApp(resolved) else { continue }
+                        if !seenPaths.contains(resolved.path) {
+                            seenPaths.insert(resolved.path)
+                            found.append(self.appInfo(from: resolved))
+                        }
+                    }
+                }
+            }
+            // 去重 + 排序
+            var unique: [AppInfo] = []
+            var seen = Set<String>()
+            for a in found {
+                if !seen.contains(a.url.path) {
+                    seen.insert(a.url.path)
+                    unique.append(a)
+                }
+            }
+            let sorted = unique.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            
+            DispatchQueue.main.async {
+                self.availableApps = sorted
+                // 仅在已有持久化布局时执行同步
+                self.processScannedApplicationsForPersistedLayout(sorted)
+                self.refreshCacheAfterFolderOperation()
+                self.triggerFolderUpdate()
+                self.triggerGridRefresh()
+            }
         }
     }
     
