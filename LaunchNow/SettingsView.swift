@@ -39,7 +39,7 @@ struct SettingsView: View {
 
             Divider()
             
-            VStack {
+            VStack(spacing: 12) {
                 HStack {
                     Text("Classic Launchpad (Fullscreen)")
                     Spacer()
@@ -57,6 +57,58 @@ struct SettingsView: View {
                         }
                     }
                 }
+                
+                // MARK: - Grid layout settings (Rows / Columns)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Grid layout")
+                        .font(.headline)
+                    
+                    HStack {
+                        VStack(alignment: .leading) {
+                            HStack {
+                                Text("Columns")
+                                Spacer()
+                                Stepper(value: $appStore.gridColumns, in: 3...12) {
+                                    Text("\(appStore.gridColumns)")
+                                }
+                                .frame(width: 180)
+                                .onChange(of: appStore.gridColumns) { _, _ in
+                                    appStore.triggerGridRefresh()
+                                }
+                            }
+                            Text("Number of app columns per page")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    
+                    HStack {
+                        VStack(alignment: .leading) {
+                            HStack {
+                                Text("Rows")
+                                Spacer()
+                                Stepper(value: $appStore.gridRows, in: 2...8) {
+                                    Text("\(appStore.gridRows)")
+                                }
+                                .frame(width: 180)
+                                .onChange(of: appStore.gridRows) { _, _ in
+                                    appStore.triggerGridRefresh()
+                                }
+                            }
+                            Text("Number of app rows per page")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    
+                    HStack {
+                        Text("Items per page")
+                        Spacer()
+                        Text("\(appStore.gridRows * appStore.gridColumns)")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.top, 8)
             }
             .padding()
             

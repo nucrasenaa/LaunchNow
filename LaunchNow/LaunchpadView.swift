@@ -73,8 +73,11 @@ struct LaunchpadView: View {
 
     private var isFolderOpen: Bool { appStore.openFolder != nil }
     
+    // เปลี่ยนให้ config อ่านค่าจาก appStore
     private var config: GridConfig {
-        GridConfig(isFullscreen: appStore.isFullscreenMode)
+        GridConfig(isFullscreen: appStore.isFullscreenMode,
+                   columns: appStore.gridColumns,
+                   rows: appStore.gridRows)
     }
     
     var filteredItems: [LaunchpadItem] {
@@ -228,7 +231,7 @@ struct LaunchpadView: View {
                 
                 GeometryReader { geo in
                     let appCountPerRow = config.columns
-                    let maxRowsPerPage = Int(ceil(Double(config.itemsPerPage) / Double(appCountPerRow)))
+                    let maxRowsPerPage = config.rows
                     let availableWidth = geo.size.width
                     let availableHeight = geo.size.height - (actualTopPadding + actualBottomPadding)
                     
@@ -288,6 +291,7 @@ struct LaunchpadView: View {
                                         }
                                         .animation(LNAnimations.gridUpdate, value: pendingDropIndex)
                                         .animation(LNAnimations.gridUpdate, value: appStore.gridRefreshTrigger)
+                                        .id(appStore.gridRefreshTrigger) // บังคับรีเฟรช layout เมื่อแถว/คอลัมน์เปลี่ยน
                                         .frame(maxHeight: .infinity, alignment: .top)
                                     }
                                     .frame(width: geo.size.width, height: geo.size.height)
@@ -296,6 +300,7 @@ struct LaunchpadView: View {
                             .offset(x: hStackOffset)
                             .opacity(isFolderOpen ? 0.1 : 1)
                             .allowsHitTesting(!isFolderOpen)
+                            .id(appStore.gridRefreshTrigger) // บังคับรีเฟรช pages container
                             
 
                             // 将预览提升到外层坐标空间，避免受到 offset 影响
@@ -336,6 +341,12 @@ struct LaunchpadView: View {
                             }
                         }
                         .onChange(of: geo.size) {
+                            DispatchQueue.main.async {
+                                captureGridGeometry(geo, columnWidth: columnWidth, appHeight: appHeight, iconSize: iconSize)
+                            }
+                        }
+                        .onChange(of: appStore.gridRefreshTrigger) {
+                            // เมื่อ rows/columns เปลี่ยน ให้จับ geometry ใหม่
                             DispatchQueue.main.async {
                                 captureGridGeometry(geo, columnWidth: columnWidth, appHeight: appHeight, iconSize: iconSize)
                             }
@@ -580,8 +591,8 @@ struct LaunchpadView: View {
         if let targetIndex = indexAt(point: localPoint,
                                      in: currentContainerSize,
                                      pageIndex: appStore.currentPage,
-                                     columnWidth: columnWidth,
-                                     appHeight: appHeight),
+                                     columnWidth: currentColumnWidth,
+                                     appHeight: currentAppHeight),
            currentItems.indices.contains(targetIndex) {
             let targetPage = targetIndex / config.itemsPerPage
             if targetPage != appStore.currentPage && targetPage < pages.count {
@@ -1381,16 +1392,19 @@ extension LaunchpadView {
     }
 }
 
+// ปรับ GridConfig ให้รับ columns/rows จาก AppStore
 struct GridConfig {
     let isFullscreen: Bool
+    let columns: Int
+    let rows: Int
     
-    init(isFullscreen: Bool = false) {
+    init(isFullscreen: Bool = false, columns: Int, rows: Int) {
         self.isFullscreen = isFullscreen
+        self.columns = max(1, columns)
+        self.rows = max(1, rows)
     }
     
-    var itemsPerPage: Int { 24 }
-    var columns: Int { 6 }
-    var rows: Int { 4 }
+    var itemsPerPage: Int { max(1, columns * rows) }
     
     let maxBounce: CGFloat = 80
     let pageSpacing: CGFloat = 100

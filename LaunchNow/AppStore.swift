@@ -22,7 +22,6 @@ final class AppStore: ObservableObject {
                     appDelegate.updateWindowMode(isFullscreen: self?.isFullscreenMode ?? false)
                 }
             }
-            
             DispatchQueue.main.async { [weak self] in
                 self?.triggerGridRefresh()
             }
@@ -32,6 +31,24 @@ final class AppStore: ObservableObject {
     @Published var scrollSensitivity: Double = 0.15 {
         didSet {
             UserDefaults.standard.set(scrollSensitivity, forKey: "scrollSensitivity")
+        }
+    }
+    
+    // 新增：可配置的列/行数（用于 SettingsView）
+    @Published var gridColumns: Int = 6 {
+        didSet {
+            let clamped = max(3, min(gridColumns, 12))
+            if gridColumns != clamped { gridColumns = clamped; return }
+            UserDefaults.standard.set(gridColumns, forKey: "gridColumns")
+            applyGridChangeSideEffects()
+        }
+    }
+    @Published var gridRows: Int = 4 {
+        didSet {
+            let clamped = max(2, min(gridRows, 8))
+            if gridRows != clamped { gridRows = clamped; return }
+            UserDefaults.standard.set(gridRows, forKey: "gridRows")
+            applyGridChangeSideEffects()
         }
     }
     
@@ -70,8 +87,8 @@ final class AppStore: ObservableObject {
     private var rescanWorkItem: DispatchWorkItem?
     private let fsEventsQueue = DispatchQueue(label: "app.store.fsevents")
     
-    // 计算属性
-    private var itemsPerPage: Int { 24 }
+    // 计算属性：每页项目数（由行列决定）
+    var itemsPerPage: Int { max(1, gridColumns * gridRows) }
     
     private let applicationSearchPaths: [String] = [
         "/Applications",
@@ -81,13 +98,28 @@ final class AppStore: ObservableObject {
     ]
 
     init() {
+        // 读取持久化设置
         self.isFullscreenMode = UserDefaults.standard.bool(forKey: "isFullscreenMode")
         self.scrollSensitivity = UserDefaults.standard.double(forKey: "scrollSensitivity")
         if self.scrollSensitivity == 0.0 {
             self.scrollSensitivity = 0.15
         }
+        let savedCols = UserDefaults.standard.integer(forKey: "gridColumns")
+        let savedRows = UserDefaults.standard.integer(forKey: "gridRows")
+        self.gridColumns = savedCols == 0 ? 6 : max(3, min(savedCols, 12))
+        self.gridRows = savedRows == 0 ? 4 : max(2, min(savedRows, 8))
     }
 
+    private func applyGridChangeSideEffects() {
+        // 当行列设置变化时：压缩每页空位到末尾，删除空白页，刷新、保存
+        compactItemsWithinPages()
+        removeEmptyPages()
+        triggerGridRefresh()
+        saveAllOrder()
+        // 让缓存和 UI 同步
+        refreshCacheAfterFolderOperation()
+    }
+    
     func configure(modelContext: ModelContext) {
         self.modelContext = modelContext
         
@@ -128,21 +160,17 @@ final class AppStore: ObservableObject {
 
     // MARK: - Initial scan (once)
     func performInitialScanIfNeeded() {
-        // 1) โหลด persisted order ถ้ามี (เพื่อคง layout เดิม)
         if !hasAppliedOrderFromStore {
             loadAllOrder()
         }
-        // 2) สแกนหา “availableApps” เท่านั้น ไม่เติมลง Launchpad อัตโนมัติ
         hasPerformedInitialScan = true
         scanAvailableApplicationsOnly()
         
-        // 3) หลังสแกนเสร็จ เตรียม cache icons ของ availableApps
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
             self?.generateCacheAfterScan()
         }
     }
 
-    // สแกนแอปทั้งหมด แต่ไม่ไปยุ่งกับ apps/items (เว้นแต่ persisted order มีอยู่แล้วและอ้างอิงแอป)
     private func scanAvailableApplicationsOnly() {
         DispatchQueue.global(qos: .userInitiated).async {
             var found: [AppInfo] = []
@@ -183,7 +211,6 @@ final class AppStore: ObservableObject {
             }
             group.wait()
             
-            // unique + sort
             var uniqueApps: [AppInfo] = []
             var uniqueSeenPaths = Set<String>()
             for app in found {
@@ -196,7 +223,6 @@ final class AppStore: ObservableObject {
             
             DispatchQueue.main.async {
                 self.availableApps = sorted
-                // ถ้ามี persisted order แล้ว items/apps ถูกโหลดไว้ก่อนหน้า ให้ rebuild mapping กับ availableApps เพื่ออัปเดตไอคอน/ชื่อ
                 if self.hasAppliedOrderFromStore && !self.items.isEmpty {
                     self.rebuildItems()
                 }
@@ -206,7 +232,6 @@ final class AppStore: ObservableObject {
     }
     
     // MARK: - Manual Import flow
-    // เปิด NSOpenPanel ให้เลือก .app ได้หลายรายการ แล้วนำเข้า
     func presentImportPanelAndImport() {
         let panel = NSOpenPanel()
         panel.canChooseFiles = true
@@ -221,11 +246,8 @@ final class AppStore: ObservableObject {
         }
     }
     
-    // นำเข้าแอปจาก URL หลายรายการ เพิ่มเข้า Launchpad
     func importSelectedApps(urls: [URL]) {
         guard !urls.isEmpty else { return }
-        
-        // unique by path
         var selected: [AppInfo] = []
         var seen = Set<String>()
         for url in urls {
@@ -243,33 +265,25 @@ final class AppStore: ObservableObject {
         }
         guard !selected.isEmpty else { return }
         
-        // เพิ่มเข้า apps (ถ้ายังไม่มี) และ items (ลงท้าย)
-        // apps ใช้เป็น “แอปใน Launchpad” เท่านั้น
         let existingPaths = Set(apps.map { $0.url.path })
         let toAdd = selected.filter { !existingPaths.contains($0.url.path) }
         if toAdd.isEmpty { return }
         
         apps.append(contentsOf: toAdd)
-        // append to items as .app at the end; keep pages intact by filling empties if needed
         for app in toAdd {
-            // หากมีช่อง empty อยู่ ให้แทนที่ก่อน
             if let emptyIdx = items.firstIndex(where: { if case .empty = $0 { return true } else { return false } }) {
                 items[emptyIdx] = .app(app)
             } else {
                 items.append(.app(app))
             }
         }
-        // ทำให้แต่ละหน้า empty ไปไว้ท้ายหน้า
         compactItemsWithinPages()
-        
-        // persist + cache + UI refresh
         saveAllOrder()
         triggerFolderUpdate()
         triggerGridRefresh()
         refreshCacheAfterFolderOperation()
     }
     
-    // สำหรับกรณีคุณทำ UI รายการจาก availableApps เอง แล้วส่ง AppInfo ที่เลือกมาโดยตรง
     func importSelectedApps(fromAppInfos appsToImport: [AppInfo]) {
         guard !appsToImport.isEmpty else { return }
         let existingPaths = Set(apps.map { $0.url.path })
@@ -291,21 +305,17 @@ final class AppStore: ObservableObject {
         refreshCacheAfterFolderOperation()
     }
     
-    // NEW: Remove selected apps from Launchpad (mirror of import flow)
     func removeSelectedApps(fromAppInfos appsToRemove: [AppInfo]) {
         guard !appsToRemove.isEmpty else { return }
         let removePaths = Set(appsToRemove.map { $0.url.path })
         
-        // 1) Remove apps from folders
         if !folders.isEmpty {
             for fIdx in folders.indices {
                 folders[fIdx].apps.removeAll { removePaths.contains($0.url.path) }
             }
-            // remove empty folders
             folders.removeAll { $0.apps.isEmpty }
         }
         
-        // 2) Replace matching items with empty
         for idx in items.indices {
             switch items[idx] {
             case .app(let a):
@@ -313,7 +323,6 @@ final class AppStore: ObservableObject {
                     items[idx] = .empty(UUID().uuidString)
                 }
             case .folder(let folder):
-                // if folder no longer exists after step 1, clear it
                 if folders.first(where: { $0.id == folder.id }) == nil {
                     items[idx] = .empty(UUID().uuidString)
                 }
@@ -322,48 +331,27 @@ final class AppStore: ObservableObject {
             }
         }
         
-        // 3) Remove from top-level apps list
         apps.removeAll { removePaths.contains($0.url.path) }
-        
-        // 4) Rebuild items to reflect updated folders and free apps
         rebuildItems()
-        
-        // 5) Compact pages and remove empty pages
         compactItemsWithinPages()
         removeEmptyPages()
-        
-        // 6) Persist and refresh cache/UI
         saveAllOrder()
         triggerFolderUpdate()
         triggerGridRefresh()
         refreshCacheAfterFolderOperation()
     }
     
-    // ปุ่ม Reset App: ล้างแอปใน Launchpad (apps/items/folders) และ persisted order แต่คง availableApps ไว้
     func resetImportedApps() {
-        // close folder if open
         openFolder = nil
-        
-        // clear runtime data for Launchpad
         folders.removeAll()
         items.removeAll()
         apps.removeAll()
-        
-        // clear persisted order data only
         clearAllPersistedData()
-        
-        // keep availableApps (สแกนไว้แล้ว) เพื่อให้ผู้ใช้ import ใหม่ได้ทันที
         cacheManager.clearAllCaches()
         triggerFolderUpdate()
         triggerGridRefresh()
-        
-        // ไม่สแกนใหม่อัตโนมัติ ให้ผู้ใช้กด Import App เอง
     }
 
-    // MARK: - Smart scanning originally populating apps/items
-    // NOTE: methods below (scanApplications / scanApplicationsWithOrderPreservation / processScannedApplications)
-    // are still used by auto-rescan and refresh, but we’ll adapt them to NOT auto-populate Launchpad when no persisted order exists.
-    
     func scanApplications(loadPersistedOrder: Bool = true) {
         DispatchQueue.global(qos: .userInitiated).async {
             var found: [AppInfo] = []
@@ -392,15 +380,11 @@ final class AppStore: ObservableObject {
 
             let sorted = found.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
             DispatchQueue.main.async {
-                // เปลี่ยนบทบาท: ใช้เป็น availableApps
                 self.availableApps = sorted
-                
                 if loadPersistedOrder {
-                    // หากมี persisted order จะ rebuildItems และ loadAllOrder ให้ตรงกับ persisted
                     self.rebuildItems()
                     self.loadAllOrder()
                 }
-                
                 self.generateCacheAfterScan()
             }
         }
@@ -458,7 +442,6 @@ final class AppStore: ObservableObject {
                 }
             }
             
-            // ไม่ auto-merge ใส่ Launchpad ถ้าไม่มี persisted order
             DispatchQueue.main.async {
                 self.availableApps = uniqueApps.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
                 if self.hasAppliedOrderFromStore {
@@ -469,19 +452,14 @@ final class AppStore: ObservableObject {
         }
     }
     
-    // ใช้เฉพาะเมื่อมี persisted order แล้ว เพื่อ sync การลบ/เพิ่ม จาก availableApps
     private func processScannedApplicationsForPersistedLayout(_ allApps: [AppInfo]) {
-        // sync updates/deletes for apps/folders/items based on available apps (similar to original logic)
-        // 1) map by path
         let allPaths = Set(allApps.map { $0.url.path })
-        // Remove deleted apps from Launchpad
         for app in apps {
             if !allPaths.contains(app.url.path) {
                 removeDeletedApp(app)
             }
         }
         apps.removeAll { !allPaths.contains($0.url.path) }
-        // Update icons/names from allApps
         let map = Dictionary(uniqueKeysWithValues: allApps.map { ($0.url.path, $0) })
         for i in apps.indices {
             if let updated = map[apps[i].url.path] {
@@ -507,7 +485,6 @@ final class AppStore: ObservableObject {
         triggerGridRefresh()
     }
     
-    /// 移除已删除的应用
     private func removeDeletedApp(_ deletedApp: AppInfo) {
         for folderIndex in self.folders.indices {
             self.folders[folderIndex].apps.removeAll { $0 == deletedApp }
@@ -556,14 +533,14 @@ final class AppStore: ObservableObject {
             !appsInFolders.contains(app) && !existingAppPaths.contains(app.url.path)
         }
         if !newFreeApps.isEmpty {
-            let itemsPerPage = self.itemsPerPage
-            let currentPages = (newItems.count + itemsPerPage - 1) / itemsPerPage
-            let lastPageStart = currentPages > 0 ? (currentPages - 1) * itemsPerPage : 0
+            let ipp = self.itemsPerPage
+            let currentPages = (newItems.count + ipp - 1) / ipp
+            let lastPageStart = currentPages > 0 ? (currentPages - 1) * ipp : 0
             let lastPageEnd = newItems.count
-            if lastPageEnd < lastPageStart + itemsPerPage {
+            if lastPageEnd < lastPageStart + ipp {
                 for app in newFreeApps { newItems.append(.app(app)) }
             } else {
-                let remainingSlots = itemsPerPage - (lastPageEnd - lastPageStart)
+                let remainingSlots = ipp - (lastPageEnd - lastPageStart)
                 for _ in 0..<remainingSlots { newItems.append(.empty(UUID().uuidString)) }
                 for app in newFreeApps { newItems.append(.app(app)) }
             }
@@ -576,9 +553,6 @@ final class AppStore: ObservableObject {
         if hasPersistedData {
             self.mergeCurrentOrderWithPersistedData(currentItems: currentItems, newApps: newApps)
         } else {
-            // ในโหมด manual-import: หากไม่มี persisted data ไม่ควรยัดทั้งหมดเข้า Launchpad
-            // ดังนั้นเราไม่ทำอะไร เพื่อให้ Launchpad ว่างจนกว่าผู้ใช้จะ import
-            // แต่ถ้าปัจจุบันมี apps (ผู้ใช้เคย import มาแล้ว) ก็ rebuild จาก apps ปัจจุบัน
             if !self.apps.isEmpty {
                 self.rebuildFromScannedApps(newApps: [])
             }
@@ -597,7 +571,6 @@ final class AppStore: ObservableObject {
     }
     
     private func mergeCurrentOrderWithPersistedData(currentItems: [LaunchpadItem], newApps: [AppInfo]) {
-        // keep as original
         var newItems: [LaunchpadItem] = []
         let appsInFolders = Set(self.folders.flatMap { $0.apps })
         for (_, item) in currentItems.enumerated() {
@@ -633,14 +606,14 @@ final class AppStore: ObservableObject {
             !appsInFolders.contains(app) && !existingAppPaths.contains(app.url.path)
         }
         if !newFreeApps.isEmpty {
-            let itemsPerPage = self.itemsPerPage
-            let currentPages = (newItems.count + itemsPerPage - 1) / itemsPerPage
-            let lastPageStart = currentPages > 0 ? (currentPages - 1) * itemsPerPage : 0
+            let ipp = self.itemsPerPage
+            let currentPages = (newItems.count + ipp - 1) / ipp
+            let lastPageStart = currentPages > 0 ? (currentPages - 1) * ipp : 0
             let lastPageEnd = newItems.count
-            if lastPageEnd < lastPageStart + itemsPerPage {
+            if lastPageEnd < lastPageStart + ipp {
                 for app in newFreeApps { newItems.append(.app(app)) }
             } else {
-                let remainingSlots = itemsPerPage - (lastPageEnd - lastPageStart)
+                let remainingSlots = ipp - (lastPageEnd - lastPageStart)
                 for _ in 0..<remainingSlots { newItems.append(.empty(UUID().uuidString)) }
                 for app in newFreeApps { newItems.append(.app(app)) }
             }
@@ -659,12 +632,12 @@ final class AppStore: ObservableObject {
                 newItems.append(.app(app))
             }
         }
-        let itemsPerPage = self.itemsPerPage
-        let currentPages = (newItems.count + itemsPerPage - 1) / itemsPerPage
-        let lastPageStart = currentPages > 0 ? (currentPages - 1) * itemsPerPage : 0
+        let ipp = self.itemsPerPage
+        let currentPages = (newItems.count + ipp - 1) / ipp
+        let lastPageStart = currentPages > 0 ? (currentPages - 1) * ipp : 0
         let lastPageEnd = newItems.count
-        if lastPageEnd < lastPageStart + itemsPerPage {
-            let remainingSlots = itemsPerPage - (lastPageEnd - lastPageStart)
+        if lastPageEnd < lastPageStart + ipp {
+            let remainingSlots = ipp - (lastPageEnd - lastPageStart)
             for _ in 0..<remainingSlots { newItems.append(.empty(UUID().uuidString)) }
         }
         self.items = newItems
@@ -821,7 +794,6 @@ final class AppStore: ObservableObject {
             }
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
-                // apply to availableApps
                 if changes.contains(where: { if case .remove = $0 { return true } else { return false } }) {
                     var indicesToRemove: [Int] = []
                     var map: [String: Int] = [:]
@@ -845,9 +817,7 @@ final class AppStore: ObservableObject {
                     self.availableApps.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
                 }
                 
-                // reflect deletions/updates into Launchpad only if persisted layout exists
                 if self.hasAppliedOrderFromStore {
-                    // deletions
                     for change in changes {
                         if case .remove(let path) = change {
                             if let app = self.apps.first(where: { $0.url.path == path }) {
@@ -856,7 +826,6 @@ final class AppStore: ObservableObject {
                             }
                         }
                     }
-                    // updates
                     for info in updates {
                         if let idx = self.apps.firstIndex(where: { $0.url.path == info.url.path }) {
                             self.apps[idx] = info
@@ -903,7 +872,7 @@ final class AppStore: ObservableObject {
         return AppInfo.from(url: url)
     }
     
-    // MARK: - 文件夹管理 (unchanged major logic)
+    // MARK: - 文件夹管理
     func createFolder(with apps: [AppInfo], name: String = "Untitled") -> FolderInfo {
         return createFolder(with: apps, name: name, insertAt: nil)
     }
@@ -1010,12 +979,9 @@ final class AppStore: ObservableObject {
         saveAllOrder()
     }
     
-    // 一键重置布局：仅同步实际存在的应用，移除已从系统删除的应用，保留既有布局与持久化顺序
     func resetLayout() {
-        // ปิดโฟลเดอร์ที่เปิดอยู่ แต่ไม่ล้าง apps/items/folders
         openFolder = nil
         
-        // สแกนแอปที่มีอยู่ในระบบใหม่ แล้วซิงค์กับเลย์เอาต์ปัจจุบัน
         DispatchQueue.global(qos: .userInitiated).async {
             var found: [AppInfo] = []
             var seenPaths = Set<String>()
@@ -1038,7 +1004,6 @@ final class AppStore: ObservableObject {
                     }
                 }
             }
-            // 去重 + 排序
             var unique: [AppInfo] = []
             var seen = Set<String>()
             for a in found {
@@ -1051,7 +1016,6 @@ final class AppStore: ObservableObject {
             
             DispatchQueue.main.async {
                 self.availableApps = sorted
-                // 仅在已有持久化布局时执行同步
                 self.processScannedApplicationsForPersistedLayout(sorted)
                 self.refreshCacheAfterFolderOperation()
                 self.triggerFolderUpdate()
@@ -1063,12 +1027,12 @@ final class AppStore: ObservableObject {
     /// 单页内自动补位
     func compactItemsWithinPages() {
         guard !items.isEmpty else { return }
-        let itemsPerPage = self.itemsPerPage
+        let ipp = self.itemsPerPage
         var result: [LaunchpadItem] = []
         result.reserveCapacity(items.count)
         var index = 0
         while index < items.count {
-            let end = min(index + itemsPerPage, items.count)
+            let end = min(index + ipp, items.count)
             let pageSlice = Array(items[index..<end])
             let nonEmpty = pageSlice.filter { if case .empty = $0 { return false } else { return true } }
             let emptyCount = pageSlice.count - nonEmpty.count
@@ -1092,8 +1056,9 @@ final class AppStore: ObservableObject {
         result[source] = .empty(UUID().uuidString)
         result = cascadeInsert(into: result, item: item, at: targetIndex)
         items = result
-        let targetPage = targetIndex / itemsPerPage
-        let currentPages = (items.count + itemsPerPage - 1) / itemsPerPage
+        let ipp = itemsPerPage
+        let targetPage = targetIndex / ipp
+        let currentPages = (items.count + ipp - 1) / ipp
         if targetPage == currentPages - 1 {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 self.compactItemsWithinPages()
@@ -1178,7 +1143,7 @@ final class AppStore: ObservableObject {
         }
     }
     
-    // MARK: - Persistence (unchanged)
+    // MARK: - Persistence
     func loadAllOrder() {
         guard let modelContext else {
             print("LaunchNow: ModelContext is nil, cannot load persisted order")
@@ -1336,10 +1301,10 @@ final class AppStore: ObservableObject {
             print("LaunchNow: Found \(existing.count) existing entries, clearing...")
             for row in existing { modelContext.delete(row) }
             let folderById: [String: FolderInfo] = Dictionary(uniqueKeysWithValues: folders.map { ($0.id, $0) })
-            let itemsPerPage = self.itemsPerPage
+            let ipp = self.itemsPerPage
             for (idx, item) in items.enumerated() {
-                let pageIndex = idx / itemsPerPage
-                let position = idx % itemsPerPage
+                let pageIndex = idx / ipp
+                let position = idx % ipp
                 let slotId = "page-\(pageIndex)-pos-\(position)"
                 switch item {
                 case .folder(let folder):
@@ -1403,11 +1368,11 @@ final class AppStore: ObservableObject {
     private var pendingNewPage: (pageIndex: Int, itemCount: Int)? = nil
     
     func createNewPageForDrag() -> Bool {
-        let itemsPerPage = self.itemsPerPage
-        let currentPages = (items.count + itemsPerPage - 1) / itemsPerPage
+        let ipp = self.itemsPerPage
+        let currentPages = (items.count + ipp - 1) / ipp
         let newPageIndex = currentPages
-        for _ in 0..<itemsPerPage { items.append(.empty(UUID().uuidString)) }
-        pendingNewPage = (pageIndex: newPageIndex, itemCount: itemsPerPage)
+        for _ in 0..<ipp { items.append(.empty(UUID().uuidString)) }
+        pendingNewPage = (pageIndex: newPageIndex, itemCount: ipp)
         triggerGridRefresh()
         return true
     }
@@ -1432,11 +1397,11 @@ final class AppStore: ObservableObject {
     // MARK: - 自动删除空白页面
     func removeEmptyPages() {
         guard !items.isEmpty else { return }
-        let itemsPerPage = self.itemsPerPage
+        let ipp = self.itemsPerPage
         var newItems: [LaunchpadItem] = []
         var index = 0
         while index < items.count {
-            let end = min(index + itemsPerPage, items.count)
+            let end = min(index + ipp, items.count)
             let pageSlice = Array(items[index..<end])
             let isEmptyPage = pageSlice.allSatisfy { item in
                 if case .empty = item { return true } else { return false }
@@ -1446,7 +1411,7 @@ final class AppStore: ObservableObject {
         }
         if newItems.count != items.count {
             items = newItems
-            let maxPageIndex = max(0, (items.count - 1) / itemsPerPage)
+            let maxPageIndex = max(0, (items.count - 1) / ipp)
             if currentPage > maxPageIndex { currentPage = maxPageIndex }
             triggerGridRefresh()
         }
@@ -1463,10 +1428,10 @@ final class AppStore: ObservableObject {
     
     private func buildExportData() -> [String: Any] {
         var pages: [[String: Any]] = []
-        let itemsPerPage = self.itemsPerPage
+        let ipp = self.itemsPerPage
         for (index, item) in items.enumerated() {
-            let pageIndex = index / itemsPerPage
-            let position = index % itemsPerPage
+            let pageIndex = index / ipp
+            let position = index % ipp
             var itemData: [String: Any] = [
                 "pageIndex": pageIndex,
                 "position": position,
@@ -1483,9 +1448,11 @@ final class AppStore: ObservableObject {
         }
         return [
             "exportDate": ISO8601DateFormatter().string(from: Date()),
-            "totalPages": (items.count + itemsPerPage - 1) / itemsPerPage,
+            "totalPages": (items.count + ipp - 1) / ipp,
             "totalItems": items.count,
             "fullscreenMode": isFullscreenMode,
+            "gridColumns": gridColumns,
+            "gridRows": gridRows,
             "pages": pages
         ]
     }
@@ -1542,7 +1509,6 @@ final class AppStore: ObservableObject {
         currentPage = 0
         if !searchText.isEmpty { searchText = "" }
         hasPerformedInitialScan = true
-        // refresh available apps only
         scanAvailableApplicationsOnly()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
             self?.generateCacheAfterScan()
@@ -1667,10 +1633,10 @@ final class AppStore: ObservableObject {
         let allUsedApps = usedApps.union(usedAppsInFolders)
         let unusedApps = apps.filter { !allUsedApps.contains($0) }
         if !unusedApps.isEmpty {
-            let itemsPerPage = self.itemsPerPage
-            let currentPages = (newItems.count + itemsPerPage - 1) / itemsPerPage
-            let lastPageStart = currentPages * itemsPerPage
-            let lastPageEnd = lastPageStart + itemsPerPage
+            let ipp = self.itemsPerPage
+            let currentPages = (newItems.count + ipp - 1) / ipp
+            let lastPageStart = currentPages * ipp
+            let lastPageEnd = lastPageStart + ipp
             while newItems.count < lastPageEnd { newItems.append(.empty(UUID().uuidString)) }
             for (index, app) in unusedApps.enumerated() {
                 let insertIndex = lastPageStart + index
@@ -1681,9 +1647,9 @@ final class AppStore: ObservableObject {
                 }
             }
             let finalPageCount = newItems.count
-            let finalPages = (finalPageCount + itemsPerPage - 1) / itemsPerPage
-            let finalLastPageStart = (finalPages - 1) * itemsPerPage
-            let finalLastPageEnd = finalLastPageStart + itemsPerPage
+            let finalPages = (finalPageCount + ipp - 1) / ipp
+            let finalLastPageStart = (finalPages - 1) * ipp
+            let finalLastPageEnd = finalLastPageStart + ipp
             while newItems.count < finalLastPageEnd { newItems.append(.empty(UUID().uuidString)) }
         }
         DispatchQueue.main.async {
