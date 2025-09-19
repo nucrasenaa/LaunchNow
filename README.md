@@ -55,7 +55,7 @@ Usage<br>
 	7.	Use Reset Apps button to clear all apps<br>
 
  Known Issues<br>
-• After creating a folder or switching pages, dragging apps may occasionally stop working. If this happens, open Settings and tap “Reset Layout” to restore drag functionality.
+~~• After creating a folder or switching pages, dragging apps may occasionally stop working. If this happens, open Settings and tap “Reset Layout” to restore drag functionality.~~
  
 <img width="1710" height="1112" alt="Screenshot 2568-09-19 at 23 03 10" src="https://github.com/user-attachments/assets/6c83c8a3-30f3-416a-ad9a-9e8c851fdde7" />
 <img width="1710" height="1112" alt="Screenshot 2568-09-19 at 23 03 19" src="https://github.com/user-attachments/assets/ac8f6c34-e971-4a4f-ac2c-e83875eee4db" />
