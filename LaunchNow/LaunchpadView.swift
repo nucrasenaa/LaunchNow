@@ -1388,9 +1388,9 @@ struct GridConfig {
         self.isFullscreen = isFullscreen
     }
     
-    var itemsPerPage: Int { 35 }
-    var columns: Int { 7 }
-    var rows: Int { 5 }
+    var itemsPerPage: Int { 20 }
+    var columns: Int { 5 }
+    var rows: Int { 4 }
     
     let maxBounce: CGFloat = 80
     let pageSpacing: CGFloat = 100
