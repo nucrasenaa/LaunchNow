@@ -1,6 +1,6 @@
 LaunchNow
 
-Forked from ggkevinnnn/LaunchNow – Alternative Launchpad application for macOS Tahoe.
+Forked from [ggkevinnnn/LaunchNow](https://github.com/ggkevinnnn/LaunchNow) – Alternative Launchpad application for macOS Tahoe.
 
 Features in this fork:<br>
 Clear sectioned settings layout<br>
