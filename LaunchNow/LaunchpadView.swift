@@ -80,6 +80,10 @@ struct LaunchpadView: View {
                    rows: appStore.gridRows)
     }
     
+    // เพิ่ม: state สำหรับดีเลย์ reorder
+    @State private var reorderCandidateIndex: Int? = nil
+    @State private var reorderWorkItem: DispatchWorkItem? = nil
+    
     var filteredItems: [LaunchpadItem] {
         guard !appStore.searchText.isEmpty else { return appStore.items }
         
@@ -1328,6 +1332,8 @@ extension LaunchpadView {
         guard pageFlipManager.canFlip() else { return false }
                 
         if point.x <= edgeMargin && appStore.currentPage > 0 {
+            // 翻页前取消预定重排，避免跨页时误触发
+            cancelScheduledReorder()
             navigateToPreviousPage()
             pageFlipManager.recordFlip()
             return true
@@ -1344,7 +1350,8 @@ extension LaunchpadView {
                     appStore.items.append(.empty(UUID().uuidString))
                 }
             }
-            
+            // 翻页前取消预定重排，避免跨页时误触发
+            cancelScheduledReorder()
             navigateToNextPage()
             pageFlipManager.recordFlip()
             return true
@@ -1410,6 +1417,9 @@ struct GridConfig {
     let pageSpacing: CGFloat = 100
     let rowSpacing: CGFloat = 16
     let columnSpacing: CGFloat = 24
+    
+    // เพิ่ม: ดีเลย์ก่อนสลับตำแหน่ง เพื่อให้สร้างโฟลเดอร์ได้ง่ายขึ้น
+    let reorderDelayBeforeSwap: TimeInterval = 0.18
     
     struct PageNavigation {
         let edgeFlipMargin: CGFloat = 15
@@ -1554,6 +1564,9 @@ extension LaunchpadView {
     // 统一的拖拽结束处理逻辑（普通拖拽与接力拖拽共用）
     private func finalizeDragOperation(containerSize: CGSize, columnWidth: CGFloat, appHeight: CGFloat, iconSize: CGFloat) {
         guard let dragging = draggingItem else { return }
+        
+        // 结束前取消任何预定的重排，避免误触发
+        cancelScheduledReorder()
         
         // 处理文件夹创建逻辑
         if appStore.isDragCreatingFolder, case .app(let app) = dragging {
@@ -1732,6 +1745,8 @@ extension LaunchpadView {
         case .folder(_):
             handleFolderHover(dragging: dragging, hoveringIndex: hoveringIndex, isInCenterArea: isInCenterArea)
         case .empty:
+            // ช่องว่าง: สลับทันที
+            cancelScheduledReorder()
             appStore.isDragCreatingFolder = false
             appStore.folderCreationTarget = nil
             pendingDropIndex = hoveringIndex
@@ -1740,12 +1755,16 @@ extension LaunchpadView {
     
     private func handleAppHover(dragging: LaunchpadItem, targetApp: AppInfo, hoveringIndex: Int, isInCenterArea: Bool) {
         if dragging == .app(targetApp) {
-            clearHoveringState()
+            cancelScheduledReorder()
+            appStore.isDragCreatingFolder = false
+            appStore.folderCreationTarget = nil
             pendingDropIndex = hoveringIndex
         } else if case .app = dragging {
             handleAppToAppHover(hoveringIndex: hoveringIndex, isInCenterArea: isInCenterArea, targetApp: targetApp)
         } else {
-            clearHoveringState()
+            cancelScheduledReorder()
+            appStore.isDragCreatingFolder = false
+            appStore.folderCreationTarget = nil
             pendingDropIndex = hoveringIndex
         }
     }
@@ -1757,22 +1776,19 @@ extension LaunchpadView {
         if candidateChanged {
             folderHoverCandidateIndex = isInCenterArea ? hoveringIndex : nil
             folderHoverBeganAt = isInCenterArea ? now : nil
-            appStore.isDragCreatingFolder = false
-            appStore.folderCreationTarget = nil
         }
         
         if isInCenterArea {
+            // เข้าสู่โซนกลาง: ยกเลิก reorder ที่ตั้งไว้ และเข้าสู่โหมดสร้างโฟลเดอร์
+            cancelScheduledReorder()
             appStore.isDragCreatingFolder = true
             appStore.folderCreationTarget = targetApp
             pendingDropIndex = nil
         } else {
-            if !isInCenterArea || folderHoverCandidateIndex == nil {
-                appStore.isDragCreatingFolder = false
-                appStore.folderCreationTarget = nil
-                pendingDropIndex = hoveringIndex
-            } else {
-                pendingDropIndex = nil
-            }
+            // นอกโซนกลาง: ตั้งเวลา reorder (เลื่อน-สลับ) เพื่อไม่ให้หนีเร็วเกินไป
+            appStore.isDragCreatingFolder = false
+            appStore.folderCreationTarget = nil
+            scheduleReorder(for: hoveringIndex)
         }
     }
     
@@ -1784,30 +1800,30 @@ extension LaunchpadView {
             if candidateChanged {
                 folderHoverCandidateIndex = isInCenterArea ? hoveringIndex : nil
                 folderHoverBeganAt = isInCenterArea ? now : nil
-                appStore.isDragCreatingFolder = false
-                appStore.folderCreationTarget = nil
             }
             
             if isInCenterArea {
+                // เข้าสู่โซนกลางของโฟลเดอร์: ยกเลิก reorder และเข้าสู่โหมดสร้างโฟลเดอร์
+                cancelScheduledReorder()
                 appStore.isDragCreatingFolder = true
                 appStore.folderCreationTarget = nil
                 pendingDropIndex = nil
             } else {
-                if !isInCenterArea || folderHoverCandidateIndex == nil {
-                    appStore.isDragCreatingFolder = false
-                    appStore.folderCreationTarget = nil
-                    pendingDropIndex = hoveringIndex
-                } else {
-                    pendingDropIndex = nil
-                }
+                // นอกโซนกลาง: ตั้งเวลา reorder
+                appStore.isDragCreatingFolder = false
+                appStore.folderCreationTarget = nil
+                scheduleReorder(for: hoveringIndex)
             }
         } else {
-            clearHoveringState()
+            cancelScheduledReorder()
+            appStore.isDragCreatingFolder = false
+            appStore.folderCreationTarget = nil
             pendingDropIndex = hoveringIndex
         }
     }
     
     private func clearHoveringState() {
+        cancelScheduledReorder()
         appStore.isDragCreatingFolder = false
         appStore.folderCreationTarget = nil
         pendingDropIndex = nil
@@ -1832,3 +1848,33 @@ extension LaunchpadView {
     }
 }
 
+// MARK: - Reorder scheduling helpers
+extension LaunchpadView {
+    private func scheduleReorder(for index: Int) {
+        // ถ้าตรงกับ pending อยู่แล้ว ไม่ต้องตั้งซ้ำ
+        if pendingDropIndex == index { return }
+        // เปลี่ยนเป้าหมาย: ยกเลิกงานเก่า
+        if reorderCandidateIndex != index {
+            cancelScheduledReorder()
+            reorderCandidateIndex = index
+        }
+        // ตั้งงานใหม่
+        let target = index
+        let work = DispatchWorkItem { [weak appStore] in
+            guard let appStore else { return }
+            // เงื่อนไขยังคงอยู่: ยังลากอยู่, ยังไม่ได้เข้าสร้างโฟลเดอร์ และ candidate ตรงกัน
+            guard draggingItem != nil,
+                  !appStore.isDragCreatingFolder,
+                  reorderCandidateIndex == target else { return }
+            pendingDropIndex = target
+        }
+        reorderWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + config.reorderDelayBeforeSwap, execute: work)
+    }
+
+    private func cancelScheduledReorder() {
+        reorderWorkItem?.cancel()
+        reorderWorkItem = nil
+        reorderCandidateIndex = nil
+    }
+}
