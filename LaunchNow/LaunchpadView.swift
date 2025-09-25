@@ -1419,7 +1419,7 @@ struct GridConfig {
     let columnSpacing: CGFloat = 24
     
     // เพิ่ม: ดีเลย์ก่อนสลับตำแหน่ง เพื่อให้สร้างโฟลเดอร์ได้ง่ายขึ้น
-    let reorderDelayBeforeSwap: TimeInterval = 0.18
+    let reorderDelayBeforeSwap: TimeInterval = 0.1
     
     struct PageNavigation {
         let edgeFlipMargin: CGFloat = 15
