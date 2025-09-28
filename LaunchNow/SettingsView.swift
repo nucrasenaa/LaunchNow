@@ -251,6 +251,9 @@ struct SettingsView: View {
     private func exportDataFolder() {
         do {
             let sourceDir = try supportDirectoryURL()
+            // Write settings JSON into the source directory so it’s included in the copy
+            try writeSettingsFile(to: sourceDir)
+
             let panel = NSOpenPanel()
             panel.canChooseFiles = false
             panel.canChooseDirectories = true
@@ -265,7 +268,9 @@ struct SettingsView: View {
                 let destDir = destParent.appendingPathComponent(folderName, isDirectory: true)
                 try copyDirectory(from: sourceDir, to: destDir)
             }
-        } catch { }
+        } catch {
+            // You could present an alert here if you want
+        }
     }
 
     private func importDataFolder() {
@@ -282,9 +287,16 @@ struct SettingsView: View {
                 let destDir = try supportDirectoryURL()
                 if srcDir.standardizedFileURL == destDir.standardizedFileURL { return }
                 try replaceDirectory(with: srcDir, at: destDir)
+
+                // Read settings back from imported folder and apply to AppStore
+                try applyImportedSettings(from: destDir)
+
+                // Then apply order/folders and refresh UI/cache
                 appStore.applyOrderAndFolders()
                 appStore.refresh()
-            } catch { }
+            } catch {
+                // You could present an alert here if you want
+            }
         }
     }
 
@@ -322,6 +334,47 @@ struct SettingsView: View {
             return !legacyEntries.isEmpty
         } catch {
             return false
+        }
+    }
+
+    // MARK: - Settings.json (include grid layout & scroll sensitivity)
+    private struct ExportedSettings: Codable {
+        let version: Int
+        let isFullscreenMode: Bool
+        let gridColumns: Int
+        let gridRows: Int
+        let scrollSensitivity: Double
+    }
+
+    private func settingsFileURL(in folder: URL) -> URL {
+        folder.appendingPathComponent("Settings.json", conformingTo: .json)
+    }
+
+    private func writeSettingsFile(to folder: URL) throws {
+        let settings = ExportedSettings(
+            version: 1,
+            isFullscreenMode: appStore.isFullscreenMode,
+            gridColumns: appStore.gridColumns,
+            gridRows: appStore.gridRows,
+            scrollSensitivity: appStore.scrollSensitivity
+        )
+        let data = try JSONEncoder().encode(settings)
+        try data.write(to: settingsFileURL(in: folder), options: [.atomic])
+    }
+
+    private func applyImportedSettings(from folder: URL) throws {
+        let url = settingsFileURL(in: folder)
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        let data = try Data(contentsOf: url)
+        let decoded = try JSONDecoder().decode(ExportedSettings.self, from: data)
+
+        // Apply on main thread so SwiftUI updates correctly; AppStore didSet already persists to UserDefaults
+        DispatchQueue.main.async {
+            // Order: fullscreen first, then grid (triggers compaction/refresh), then sensitivity
+            self.appStore.isFullscreenMode = decoded.isFullscreenMode
+            self.appStore.gridColumns = decoded.gridColumns
+            self.appStore.gridRows = decoded.gridRows
+            self.appStore.scrollSensitivity = decoded.scrollSensitivity
         }
     }
 }
