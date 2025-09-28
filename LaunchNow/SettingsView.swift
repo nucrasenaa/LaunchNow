@@ -216,23 +216,21 @@ struct SettingsView: View {
 
                     Spacer()
 
+                    // Uninstall (same style as Quit) placed before Quit
+                    Button {
+                        showUninstallSheet = true
+                    } label: {
+                        Label("Uninstall", systemImage: "trash.circle")
+                            .foregroundStyle(Color.red)
+                    }
+                    .help("Quit the app and move it to the Trash. You can also remove app data.")
+
                     Button {
                         exit(0)
                     } label: {
                         Label("Quit", systemImage: "xmark.circle")
                             .foregroundStyle(Color.red)
                     }
-                }
-
-                HStack {
-                    Button {
-                        showUninstallSheet = true
-                    } label: {
-                        Label("Uninstall LaunchNow…", systemImage: "trash.circle")
-                            .foregroundStyle(Color.red)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .help("Quit the app and move it to the Trash. You can also remove app data.")
                 }
             }
             .padding(.vertical, 8)
