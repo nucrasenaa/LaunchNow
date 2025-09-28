@@ -47,12 +47,14 @@ UX and behavior details<br>
 
 Usage<br>
 	1.	Download the app<br>
-	2.	(Optional) Add LaunchNow to login items<br>
-    3.	Use Settings → Import to add apps<br>
-	4.	Drag apps to customize application sort or create folders<br>
-	5.	Press Down Arrow or Return on keyboard to enable full keyboard navigation<br>
-	6.	Scroll to turn the page<br>
-	7.	Use Reset Apps button to clear all apps<br>
+	2.	Drag the app to Applications<br>
+	3.	Go to System Settings → Privacy & Security → Allow app from unidentified developer<br>
+	4.	(Optional) Add LaunchNow to login items<br>
+	5.	Use Settings → Import to add apps<br>
+	6.	Drag apps to customize sort order or create folders<br>
+	7.	Press Down Arrow or Return on keyboard to enable full keyboard navigation<br>
+	8.	Scroll to turn the page<br>
+	9.	Use Reset Apps button to clear all apps<br>
 
  Known Issues<br>
 ~~• After creating a folder or switching pages, dragging apps may occasionally stop working. If this happens, open Settings and tap “Reset Layout” to restore drag functionality.~~ <br>
