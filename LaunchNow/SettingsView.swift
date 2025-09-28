@@ -9,6 +9,8 @@ struct SettingsView: View {
     @State private var showResetAppsConfirm = false
     @State private var isImportSheetPresented = false
     @State private var isRemoveSheetPresented = false
+    @State private var showUninstallSheet = false
+    @State private var alsoRemoveData = true
 
     // คำนวณความสูงสูงสุดของแผง (80% ของความสูงหน้าจอที่มองเห็น)
     private var sheetMaxHeight: CGFloat {
@@ -137,8 +139,8 @@ struct SettingsView: View {
                     }
                     .sheet(isPresented: $isImportSheetPresented) {
                         ImportAppsSheet(appStore: appStore, isPresented: $isImportSheetPresented)
-                            .frame(minWidth: 640, minHeight: 420)   // ลด minHeight ลงอีก
-                            .frame(maxHeight: sheetMaxHeight)       // จำกัดไม่เกิน 80% ของจอ
+                            .frame(minWidth: 640, minHeight: 420)
+                            .frame(maxHeight: sheetMaxHeight)
                     }
 
                     Button {
@@ -148,8 +150,8 @@ struct SettingsView: View {
                     }
                     .sheet(isPresented: $isRemoveSheetPresented) {
                         RemoveAppsSheet(appStore: appStore, isPresented: $isRemoveSheetPresented)
-                            .frame(minWidth: 640, minHeight: 420)   // ลด minHeight ลงอีก
-                            .frame(maxHeight: sheetMaxHeight)       // จำกัดไม่เกิน 80% ของจอ
+                            .frame(minWidth: 640, minHeight: 420)
+                            .frame(maxHeight: sheetMaxHeight)
                     }
 
                     Button {
@@ -221,6 +223,17 @@ struct SettingsView: View {
                             .foregroundStyle(Color.red)
                     }
                 }
+
+                HStack {
+                    Button {
+                        showUninstallSheet = true
+                    } label: {
+                        Label("Uninstall LaunchNow…", systemImage: "trash.circle")
+                            .foregroundStyle(Color.red)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .help("Quit the app and move it to the Trash. You can also remove app data.")
+                }
             }
             .padding(.vertical, 8)
         }
@@ -230,6 +243,32 @@ struct SettingsView: View {
             if appStore.availableApps.isEmpty {
                 appStore.performInitialScanIfNeeded()
             }
+        }
+        .sheet(isPresented: $showUninstallSheet) {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Uninstall LaunchNow")
+                    .font(.title2.bold())
+                Text("The app will quit and attempt to move itself to the Trash. You can also remove its data (Application Support and preferences).")
+                    .foregroundStyle(.secondary)
+
+                Toggle("Also remove app data (Application Support and preferences)", isOn: $alsoRemoveData)
+
+                HStack {
+                    Spacer()
+                    Button("Cancel") {
+                        showUninstallSheet = false
+                    }
+                    Button(role: .destructive) {
+                        showUninstallSheet = false
+                        performUninstall(removeData: alsoRemoveData)
+                    } label: {
+                        Text("Uninstall")
+                    }
+                    .keyboardShortcut(.defaultAction)
+                }
+            }
+            .padding()
+            .frame(minWidth: 480)
         }
     }
     
@@ -375,6 +414,120 @@ struct SettingsView: View {
             self.appStore.gridColumns = decoded.gridColumns
             self.appStore.gridRows = decoded.gridRows
             self.appStore.scrollSensitivity = decoded.scrollSensitivity
+        }
+    }
+
+    // MARK: - Uninstall
+    private func performUninstall(removeData: Bool) {
+        let appPath = Bundle.main.bundlePath
+        let supportPath = (try? supportDirectoryURL().path) ?? ""
+        let prefsDomain = Bundle.main.bundleIdentifier ?? ""
+        let bundleID = Bundle.main.bundleIdentifier ?? ""
+
+        // สคริปต์ถอนการติดตั้ง: ย้ายแอปไปถังขยะ, เอา Pin ออกจาก Dock, ลบข้อมูลถ้าต้องการ แล้วลบตัวเอง
+        let script = """
+        #!/bin/bash
+        APP_PATH="$1"
+        REMOVE_DATA="$2"
+        SUPPORT_PATH="$3"
+        PREFS_DOMAIN="$4"
+        BUNDLE_ID="$5"
+
+        TRASH="$HOME/.Trash"
+        mkdir -p "$TRASH"
+        BASENAME="$(basename "$APP_PATH")"
+        DEST="$TRASH/$BASENAME"
+        i=0
+        while [ -e "$DEST" ]; do
+          i=$((i+1))
+          DEST="$TRASH/$BASENAME $i"
+        done
+
+        # พยายามให้ Finder ลบไปถังขยะ (จะ handle permission/volume ให้)
+        ATTEMPTS=200
+        while [ $ATTEMPTS -gt 0 ]; do
+          /usr/bin/osascript -e 'try
+            set p to POSIX file "'"$APP_PATH"'"
+            tell application "Finder" to delete p
+          end try' >/dev/null 2>&1 && break
+          mv "$APP_PATH" "$DEST" >/dev/null 2>&1 && break
+          sleep 0.1
+          ATTEMPTS=$((ATTEMPTS-1))
+        done
+
+        # หากยังอยู่ ให้ลบทิ้งแบบ force (ไม่ได้ไปถังขยะ)
+        if [ -e "$APP_PATH" ]; then
+          rm -rf "$APP_PATH"
+        fi
+
+        # เอาไอคอนที่ปักหมุดออกจาก Dock (persistent-apps) แล้วรีสตาร์ท Dock
+        PLIST="$HOME/Library/Preferences/com.apple.dock.plist"
+        if [ -f "$PLIST" ]; then
+          # หา count ของ persistent-apps
+          COUNT=0
+          while /usr/libexec/PlistBuddy -c "Print :persistent-apps:$COUNT" "$PLIST" >/dev/null 2>&1; do
+            COUNT=$((COUNT+1))
+          done
+          IDX=$((COUNT-1))
+          while [ $IDX -ge 0 ]; do
+            BID=$(/usr/libexec/PlistBuddy -c "Print :persistent-apps:$IDX:tile-data:bundle-identifier" "$PLIST" 2>/dev/null || echo "")
+            URLSTR=$(/usr/libexec/PlistBuddy -c "Print :persistent-apps:$IDX:tile-data:file-data:_CFURLString" "$PLIST" 2>/dev/null || echo "")
+            if [ "$BID" = "$BUNDLE_ID" ] || [[ "$URLSTR" == "file://$APP_PATH"* ]] || [[ "$URLSTR" == *"/$(basename "$APP_PATH")"* ]]; then
+              /usr/libexec/PlistBuddy -c "Delete :persistent-apps:$IDX" "$PLIST" >/dev/null 2>&1
+            fi
+            IDX=$((IDX-1))
+          done
+          /usr/bin/killall Dock >/dev/null 2>&1
+        fi
+
+        if [ "$REMOVE_DATA" = "1" ]; then
+          if [ -n "$SUPPORT_PATH" ]; then
+            rm -rf "$SUPPORT_PATH"
+          fi
+          if [ -n "$PREFS_DOMAIN" ]; then
+            defaults delete "$PREFS_DOMAIN" >/dev/null 2>&1
+          fi
+        fi
+
+        rm -- "$0" >/dev/null 2>&1 &
+        """
+
+        let tmpURL = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("launchnow_uninstall_\(UUID().uuidString).sh")
+
+        do {
+            try script.write(to: tmpURL, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: tmpURL.path)
+
+            let proc = Process()
+            proc.executableURL = URL(fileURLWithPath: "/bin/bash")
+            proc.arguments = [tmpURL.path, appPath, removeData ? "1" : "0", supportPath, prefsDomain, bundleID]
+            try proc.run()
+        } catch {
+            // ถ้ารันสคริปต์ไม่ได้ เปิด Finder โชว์แอปเพื่อให้ลบเอง
+            NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: appPath)])
+        }
+
+        // ปิด UI และจบโปรเซสให้แน่นอน
+        DispatchQueue.main.async {
+            let app = NSApplication.shared
+
+            // ปิดหน้าต่างทั้งหมดและซ่อนจาก Dock/แอปทันที
+            for w in app.windows {
+                w.orderOut(nil)
+                w.close()
+            }
+            app.hide(nil)
+            app.setActivationPolicy(.prohibited)
+
+            // ขอเลิกงานแบบสุภาพก่อน
+            app.terminate(nil)
+
+            // Fallback: บังคับจบถ้ายังไม่ออก
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                NSRunningApplication.current.forceTerminate()
+                exit(0)
+            }
         }
     }
 }
