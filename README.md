@@ -1,4 +1,6 @@
-LaunchNow
+[LaunchNow](https://launchnow.gooxsoft.com/)
+
+<img width="1440" height="900" alt="0" src="https://github.com/user-attachments/assets/262d8a74-0530-4fd3-b501-c4eab5beebfd" />
 
 Forked from [ggkevinnnn/LaunchNow](https://github.com/ggkevinnnn/LaunchNow) – Alternative Launchpad application for macOS Tahoe.
 
@@ -59,13 +61,28 @@ Usage<br>
  Known Issues<br>
 ~~• After creating a folder or switching pages, dragging apps may occasionally stop working. If this happens, open Settings and tap “Reset Layout” to restore drag functionality.~~ <br>
 ~~• Creating folders in a horizontal direction is hard.  **Workaround:** Drag upward (vertically) first.~~
-   
- 
-<img width="1710" height="1112" alt="Screenshot 2568-09-19 at 23 03 10" src="https://github.com/user-attachments/assets/6c83c8a3-30f3-416a-ad9a-9e8c851fdde7" />
-<img width="1710" height="1112" alt="Screenshot 2568-09-19 at 23 03 19" src="https://github.com/user-attachments/assets/ac8f6c34-e971-4a4f-ac2c-e83875eee4db" />
-<img width="1710" height="1112" alt="Screenshot 2568-09-19 at 23 05 13" src="https://github.com/user-attachments/assets/2a55c22f-e0ef-4ab1-b521-b3316b01faaa" />
-<img width="1710" height="1112" alt="Screenshot 2568-09-19 at 23 05 36" src="https://github.com/user-attachments/assets/e2dabc7f-082d-4ad4-83f1-bc1e89f31bea" />
-<img width="1710" height="1112" alt="Screenshot 2568-09-19 at 23 11 28" src="https://github.com/user-attachments/assets/c1611657-2c60-43b8-9248-a2f4aa6c0ae9" />
+
+   <img width="1440" height="900" alt="0" src="https://github.com/user-attachments/assets/b6cacb58-0592-4c41-be56-ea8934b09f62" />
+   <img width="1440" height="900" alt="1" src="https://github.com/user-attachments/assets/4286bc71-01e3-4def-949f-0d37796ea282" />
+   <img width="1440" height="900" alt="2" src="https://github.com/user-attachments/assets/6b690860-bd8f-41e9-bada-414da4f323cb" />
+   <img width="1440" height="900" alt="3" src="https://github.com/user-attachments/assets/6a56c461-28b8-4ff5-bf22-6b980336b578" />
+   <img width="1440" height="900" alt="4" src="https://github.com/user-attachments/assets/091e1091-2630-4ca1-a2fb-df7bfdcb4649" />
+   <img width="1440" height="900" alt="5" src="https://github.com/user-attachments/assets/4bee84d8-736c-4fc3-ad87-109562da0c9f" />
+   <img width="1440" height="900" alt="6" src="https://github.com/user-attachments/assets/2a08b834-db10-410d-9eec-ef74fc948aca" />
+   <img width="1440" height="900" alt="7" src="https://github.com/user-attachments/assets/55388ed4-76f1-486c-bf4e-f3867330836e" />
+   <img width="1440" height="900" alt="8" src="https://github.com/user-attachments/assets/0d0c726c-8251-42b0-8442-c0413ce76bb5" />
+ <img width="1440" height="900" alt="9" src="https://github.com/user-attachments/assets/37f1bba2-9ccf-415c-910b-19355e7d6c7e" />
+
+
+
+
+
+
+
+
+
+
+
 
 
 
