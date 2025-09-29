@@ -3,273 +3,560 @@ import AppKit
 import UniformTypeIdentifiers
 import SwiftData
 
+private enum SettingsSection: String, CaseIterable, Identifiable {
+    case general
+    case appearance
+    case layout
+    case apps
+    case data
+    case about
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .general: return "General"
+        case .appearance: return "Appearance"
+        case .layout: return "Grid Layout"
+        case .apps: return "App Management"
+        case .data: return "Data"
+        case .about: return "About"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .general: return "gearshape.fill"
+        case .appearance: return "paintbrush.pointed.fill"
+        case .layout: return "square.grid.3x3.fill"
+        case .apps:
+            // macOS 12.6 compatible symbol
+            return "square.grid.2x2.fill"
+        case .data: return "tray.and.arrow.down.fill"
+        case .about: return "info.circle.fill"
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .general: return .blue
+        case .appearance: return .purple
+        case .layout: return .green
+        case .apps: return .orange
+        case .data: return .teal
+        case .about: return .gray
+        }
+    }
+}
+
 struct SettingsView: View {
     @ObservedObject var appStore: AppStore
+
+    // Sheet / alert states
     @State private var showResetConfirm = false
     @State private var showResetAppsConfirm = false
     @State private var isImportSheetPresented = false
-    @State private var isRemoveSheetPresented = false
+    @State private var isRemoveSheetPresented = false // kept for compatibility (not used in new UI)
     @State private var showUninstallSheet = false
     @State private var alsoRemoveData = true
 
-    // คำนวณความสูงสูงสุดของแผง (80% ของความสูงหน้าจอที่มองเห็น)
+    // UI state
+    @State private var selected: SettingsSection = .general
+    @State private var tempLanguage: String = Locale.current.localizedString(forLanguageCode: Locale.current.language.languageCode?.identifier ?? "en") ?? "English"
+
+    // App list search (Apps pane)
+    @State private var appListSearchText: String = ""
+
+    // Max sheet height (80% of visible screen height)
     private var sheetMaxHeight: CGFloat {
         let h = NSScreen.main?.visibleFrame.height ?? 900
         return h * 0.8
     }
 
+    // Preferred size for Settings window
+    private var preferredWidth: CGFloat {
+        let w = NSScreen.main?.visibleFrame.width ?? 1440
+        return w * 0.6
+    }
+    private var preferredHeight: CGFloat {
+        let h = NSScreen.main?.visibleFrame.height ?? 900
+        return h * 0.6
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Header
-            HStack(alignment: .firstTextBaseline) {
-                Text("LaunchNow")
-                    .font(.title)
-                Text("v\(getVersion())")
-                    .font(.footnote)
-                Spacer()
-                Button {
-                    appStore.isSetting = false
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.title2.bold())
-                        .foregroundStyle(.placeholder)
-                }
-                .buttonStyle(.plain)
+        ZStack(alignment: .topTrailing) {
+            HStack(spacing: 0) {
+                sidebar
+                Divider()
+                content
             }
-            .padding(.vertical)
+            // Width = 80% of screen width, Height = 60% of screen height
+            .frame(width: preferredWidth, height: preferredHeight)
 
-            // Section 1: Appearance & Interaction
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Appearance & Interaction")
-                    .font(.headline)
-
-                HStack {
-                    Text("Classic Launchpad (Fullscreen)")
-                    Spacer()
-                    Toggle(isOn: $appStore.isFullscreenMode) { }
-                        .toggleStyle(.switch)
-                }
-                HStack(alignment: .top) {
-                    Text("Scrolling sensitivity")
-                    VStack {
-                        Slider(value: $appStore.scrollSensitivity, in: 0.01...0.99)
-                        HStack {
-                            Text("Low").font(.footnote)
-                            Spacer()
-                            Text("High").font(.footnote)
-                        }
-                    }
-                }
-                HStack {
-                    Text("Automatically run on background: add LaunchNow to dock or use keyboard shortcuts to open the application window")
-                    Spacer()
-                }
+            // Close button
+            Button {
+                appStore.isSetting = false
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
             }
-            .padding(.bottom, 8)
-
-            Divider()
-
-            // Section 2: Grid Layout
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Grid Layout")
-                    .font(.headline)
-
-                HStack {
-                    VStack(alignment: .leading) {
-                        HStack {
-                            Text("Columns")
-                            Spacer()
-                            Stepper(value: $appStore.gridColumns, in: 3...12) {
-                                Text("\(appStore.gridColumns)")
-                            }
-                            .frame(width: 180)
-                            .onChange(of: appStore.gridColumns) { _, _ in
-                                appStore.triggerGridRefresh()
-                            }
-                        }
-                        Text("Number of app columns per page")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                HStack {
-                    VStack(alignment: .leading) {
-                        HStack {
-                            Text("Rows")
-                            Spacer()
-                            Stepper(value: $appStore.gridRows, in: 2...8) {
-                                Text("\(appStore.gridRows)")
-                            }
-                            .frame(width: 180)
-                            .onChange(of: appStore.gridRows) { _, _ in
-                                appStore.triggerGridRefresh()
-                            }
-                        }
-                        Text("Number of app rows per page")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                HStack {
-                    Text("Items per page")
-                    Spacer()
-                    Text("\(appStore.gridRows * appStore.gridColumns)")
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .padding(.vertical, 8)
-
-            Divider()
-
-            // Section 3: App Management
-            VStack(alignment: .leading, spacing: 12) {
-                Text("App Management")
-                    .font(.headline)
-
-                HStack(spacing: 12) {
-                    Button {
-                        if appStore.availableApps.isEmpty {
-                            appStore.performInitialScanIfNeeded()
-                        }
-                        isImportSheetPresented = true
-                    } label: {
-                        Label("Add App", systemImage: "plus.app")
-                    }
-                    .sheet(isPresented: $isImportSheetPresented) {
-                        ImportAppsSheet(appStore: appStore, isPresented: $isImportSheetPresented)
-                            .frame(minWidth: 640, minHeight: 420)
-                            .frame(maxHeight: sheetMaxHeight)
-                    }
-
-                    Button {
-                        isRemoveSheetPresented = true
-                    } label: {
-                        Label("Remove App", systemImage: "trash.slash")
-                    }
-                    .sheet(isPresented: $isRemoveSheetPresented) {
-                        RemoveAppsSheet(appStore: appStore, isPresented: $isRemoveSheetPresented)
-                            .frame(minWidth: 640, minHeight: 420)
-                            .frame(maxHeight: sheetMaxHeight)
-                    }
-
-                    Button {
-                        showResetAppsConfirm = true
-                    } label: {
-                        Label("Reset App", systemImage: "trash")
-                            .foregroundStyle(Color.red)
-                    }
-                    .alert("Clear all apps from Launchpad?", isPresented: $showResetAppsConfirm) {
-                        Button("Clear", role: .destructive) { appStore.resetImportedApps() }
-                        Button("Cancel", role: .cancel) {}
-                    } message: {
-                        Text("This will remove all apps, folders and layout from Launchpad. Your applications on disk are not affected.")
-                    }
-                }
-            }
-            .padding(.vertical, 8)
-
-            Divider()
-
-            // Section 4: App Settings Backup
-            VStack(alignment: .leading, spacing: 12) {
-                Text("App Settings Backup")
-                    .font(.headline)
-
-                HStack(spacing: 12) {
-                    Button {
-                        importDataFolder()
-                    } label: {
-                        Label("Import App Setting", systemImage: "square.and.arrow.down")
-                    }
-
-                    Button {
-                        exportDataFolder()
-                    } label: {
-                        Label("Export App Setting", systemImage: "square.and.arrow.up")
-                    }
-                }
-            }
-            .padding(.vertical, 8)
-
-            Divider()
-
-            // Section 5: Maintenance
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Maintenance")
-                    .font(.headline)
-
-                HStack {
-                    Button {
-                        showResetConfirm = true
-                    } label: {
-                        Label("Reset Layout", systemImage: "arrow.counterclockwise")
-                            .foregroundStyle(Color.red)
-                    }
-                    .alert("Confirm to reset layout?", isPresented: $showResetConfirm) {
-                        Button("Reset", role: .destructive) { appStore.resetLayout() }
-                        Button("Cancel", role: .cancel) {}
-                    } message: {
-                        Text("This will reset layout and rescan available apps. It won’t auto-add apps to Launchpad.")
-                    }
-
-                    Spacer()
-
-                    // Uninstall (same style as Quit) placed before Quit
-                    Button {
-                        showUninstallSheet = true
-                    } label: {
-                        Label("Uninstall", systemImage: "trash.circle")
-                            .foregroundStyle(Color.red)
-                    }
-                    .help("Quit the app and move it to the Trash. You can also remove app data.")
-
-                    Button {
-                        exit(0)
-                    } label: {
-                        Label("Quit", systemImage: "xmark.circle")
-                            .foregroundStyle(Color.red)
-                    }
-                }
-            }
-            .padding(.vertical, 8)
+            .buttonStyle(.plain)
+            .padding()
         }
-        .padding(.horizontal)
-        .padding(.bottom)
         .onAppear {
             if appStore.availableApps.isEmpty {
                 appStore.performInitialScanIfNeeded()
             }
         }
-        .sheet(isPresented: $showUninstallSheet) {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Uninstall LaunchNow")
-                    .font(.title2.bold())
-                Text("The app will quit and attempt to move itself to the Trash. You can also remove its data (Application Support and preferences).")
-                    .foregroundStyle(.secondary)
-
-                Toggle("Also remove app data (Application Support and preferences)", isOn: $alsoRemoveData)
-
-                HStack {
-                    Spacer()
-                    Button("Cancel") {
-                        showUninstallSheet = false
-                    }
-                    Button(role: .destructive) {
-                        showUninstallSheet = false
-                        performUninstall(removeData: alsoRemoveData)
-                    } label: {
-                        Text("Uninstall")
-                    }
-                    .keyboardShortcut(.defaultAction)
-                }
-            }
-            .padding()
-            .frame(minWidth: 480)
+        .sheet(isPresented: $isImportSheetPresented) {
+            ImportAppsSheet(appStore: appStore, isPresented: $isImportSheetPresented)
+                .frame(minWidth: 640, minHeight: 420)
+                .frame(maxHeight: sheetMaxHeight)
+        }
+        // Kept for compatibility; no longer presented from Apps pane
+        .sheet(isPresented: $isRemoveSheetPresented) {
+            RemoveAppsSheet(appStore: appStore, isPresented: $isRemoveSheetPresented)
+                .frame(minWidth: 640, minHeight: 420)
+                .frame(maxHeight: sheetMaxHeight)
+        }
+        .sheet(isPresented: $showUninstallSheet) { uninstallSheet }
+        .alert("Confirm to reset layout?", isPresented: $showResetConfirm) {
+            Button("Reset", role: .destructive) { appStore.resetLayout() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will reset layout and rescan available apps. It won’t auto-add apps to Launchpad.")
+        }
+        .alert("Clear all apps from Launchpad?", isPresented: $showResetAppsConfirm) {
+            Button("Clear", role: .destructive) { appStore.resetImportedApps() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will remove all apps, folders and layout from Launchpad. Your applications on disk are not affected.")
         }
     }
-    
+
+    // MARK: - Sidebar
+    private var sidebar: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // App title
+            VStack(alignment: .leading, spacing: 2) {
+                Text("LaunchNow")
+                    .font(.title3.bold())
+                Text("v\(getVersion())")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+            .padding(.bottom, 8)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(SettingsSection.allCases) { section in
+                        Button {
+                            selected = section
+                        } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: section.symbol)
+                                    .foregroundStyle(.white)
+                                    .frame(width: 24, height: 24)
+                                    .padding(8)
+                                    .background(
+                                        Circle().fill(section.tint)
+                                    )
+
+                                Text(section.title)
+                                    .font(.body)
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                            }
+                            .padding(8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .fill(selected == section ? section.tint.opacity(0.15) : Color.clear)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 8)
+                    }
+                }
+                .padding(.top, 6)
+            }
+
+            Spacer()
+        }
+        .frame(width: 240)
+    }
+
+    // MARK: - Content
+    private var content: some View {
+        VStack(spacing: 0) {
+            // Section title
+            HStack {
+                Text(selected.title)
+                    .font(.title2.bold())
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+
+            Divider()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    switch selected {
+                    case .general: generalPane
+                    case .appearance: appearancePane
+                    case .layout: layoutPane
+                    case .apps: appsPane
+                    case .data: dataPane
+                    case .about: aboutPane
+                    }
+                }
+                .padding(20)
+            }
+
+            Divider()
+                .padding(.top, 8)
+
+            // Bottom action bar
+            HStack {
+                Button {
+                    appStore.refresh()
+                } label: {
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(.bordered)
+
+                Spacer()
+
+                Button {
+                    showResetConfirm = true
+                } label: {
+                    Label("Reset Layout", systemImage: "arrow.counterclockwise")
+                }
+                .buttonStyle(.bordered)
+                .tint(.red)
+
+                Button {
+                    exit(0)
+                } label: {
+                    Label("Quit", systemImage: "xmark.circle")
+                }
+                .buttonStyle(.bordered)
+                .tint(.red)
+            }
+            .padding(12)
+            .background(.bar)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    // MARK: - Individual panes
+    private var generalPane: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Language")
+                    .font(.headline)
+                Picker("", selection: $tempLanguage) {
+                    Text("English").tag("English")
+                    Text("System").tag("System")
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(width: 200)
+                .disabled(true)
+                Text("This feature is in development.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Run in background")
+                    .font(.headline)
+                Text("Add LaunchNow to the Dock or use keyboard shortcuts to open the window quickly.")
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var appearancePane: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Classic Launchpad (Fullscreen)")
+                    .font(.headline)
+                Toggle(isOn: $appStore.isFullscreenMode) {
+                    Text("Use fullscreen layout and spacing")
+                }
+                .toggleStyle(.switch)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Scrolling sensitivity")
+                    .font(.headline)
+                Slider(value: $appStore.scrollSensitivity, in: 0.01...0.99)
+                    .frame(maxWidth: 380)
+                HStack {
+                    Text("Low").font(.footnote).foregroundStyle(.secondary)
+                    Spacer()
+                    Text("High").font(.footnote).foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: 380)
+            }
+        }
+    }
+
+    private var layoutPane: some View {
+        // Convert Int properties to stepped sliders
+        let columnsBinding = Binding<Double>(
+            get: { Double(appStore.gridColumns) },
+            set: { appStore.gridColumns = Int($0.rounded()) }
+        )
+        let rowsBinding = Binding<Double>(
+            get: { Double(appStore.gridRows) },
+            set: { appStore.gridRows = Int($0.rounded()) }
+        )
+
+        return VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Columns").font(.headline)
+                    Spacer()
+                    Text("\(appStore.gridColumns)")
+                        .foregroundStyle(.secondary)
+                }
+                Slider(value: columnsBinding, in: 3...12, step: 1)
+                    .frame(maxWidth: 380)
+                HStack {
+                    Text("3").font(.footnote).foregroundStyle(.secondary)
+                    Spacer()
+                    Text("12").font(.footnote).foregroundStyle(.secondary)
+                }
+                Text("Number of app columns per page")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Rows").font(.headline)
+                    Spacer()
+                    Text("\(appStore.gridRows)")
+                        .foregroundStyle(.secondary)
+                }
+                Slider(value: rowsBinding, in: 2...8, step: 1)
+                    .frame(maxWidth: 380)
+                HStack {
+                    Text("2").font(.footnote).foregroundStyle(.secondary)
+                    Spacer()
+                    Text("8").font(.footnote).foregroundStyle(.secondary)
+                }
+                Text("Number of app rows per page")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack {
+                Text("Items per page")
+                    .font(.headline)
+                Spacer()
+                Text("\(appStore.gridRows * appStore.gridColumns)")
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: 380)
+        }
+    }
+
+    // MARK: - Apps pane (Add + Reset + searchable remove list)
+    private var appsPane: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Top actions
+            HStack(spacing: 12) {
+                Button {
+                    if appStore.availableApps.isEmpty {
+                        appStore.performInitialScanIfNeeded()
+                    }
+                    isImportSheetPresented = true
+                } label: {
+                    Label("Add App", systemImage: "plus.app")
+                }
+                .buttonStyle(.borderedProminent)
+
+                Button(role: .destructive) {
+                    showResetAppsConfirm = true
+                } label: {
+                    Label("Reset App", systemImage: "trash")
+                }
+                .buttonStyle(.bordered)
+                .tint(.red)
+            }
+
+            Text("Remove apps from Launchpad (does not delete apps from disk).")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            // Search
+            TextField("Search apps", text: $appListSearchText)
+                .textFieldStyle(.roundedBorder)
+                .frame(maxWidth: 420)
+
+            // List
+            VStack(spacing: 10) {
+                ForEach(filteredAppsForRemoveList, id: \.id) { app in
+                    HStack(spacing: 12) {
+                        Image(nsImage: app.icon)
+                            .resizable()
+                            .interpolation(.high)
+                            .antialiased(true)
+                            .frame(width: 32, height: 32)
+                            .cornerRadius(6)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(app.name)
+                                .font(.body.weight(.semibold))
+                            Text(app.url.deletingPathExtension().lastPathComponent)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        Button(role: .destructive) {
+                            appStore.removeSelectedApps(fromAppInfos: [app])
+                        } label: {
+                            Text("Remove")
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.red)
+                    }
+                    .padding(10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.primary.opacity(0.06))
+                    )
+                    .help(app.url.path)
+                }
+
+                if filteredAppsForRemoveList.isEmpty {
+                    Text(appListSearchText.isEmpty ? "No apps in Launchpad." : "No results.")
+                        .foregroundStyle(.secondary)
+                        .padding(.vertical, 12)
+                }
+            }
+        }
+    }
+
+    // Aggregate all apps currently in Launchpad (including inside folders), unique + sorted
+    private var allAppsInLaunchpad: [AppInfo] {
+        var list: [AppInfo] = []
+        list.append(contentsOf: appStore.apps)
+        for folder in appStore.folders {
+            list.append(contentsOf: folder.apps)
+        }
+        var unique: [AppInfo] = []
+        var seen = Set<String>()
+        for a in list {
+            if !seen.contains(a.id) {
+                seen.insert(a.id)
+                unique.append(a)
+            }
+        }
+        return unique.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    private var filteredAppsForRemoveList: [AppInfo] {
+        guard !appListSearchText.isEmpty else { return allAppsInLaunchpad }
+        return allAppsInLaunchpad.filter { $0.name.localizedCaseInsensitiveContains(appListSearchText) }
+    }
+
+    private var dataPane: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 12) {
+                Button {
+                    exportDataFolder()
+                } label: {
+                    Label("Export Data", systemImage: "square.and.arrow.up")
+                }
+                .buttonStyle(.bordered)
+
+                Button {
+                    importDataFolder()
+                } label: {
+                    Label("Import Data", systemImage: "square.and.arrow.down")
+                }
+                .buttonStyle(.bordered)
+            }
+
+            Text("Export/Import includes your layout, folders and settings.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var aboutPane: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 16) {
+                Image(nsImage: NSApp.applicationIconImage)
+                    .resizable()
+                    .frame(width: 64, height: 64)
+                    .cornerRadius(14)
+                VStack(alignment: .leading) {
+                    Text("LaunchNow")
+                        .font(.title3.bold())
+                    Text("Version \(getVersion())")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Text("A lightweight Launchpad-like app launcher.")
+                .foregroundStyle(.secondary)
+
+            Divider().padding(.vertical, 8)
+
+            // Uninstall is here (moved from Apps)
+            HStack(spacing: 12) {
+                Button {
+                    showUninstallSheet = true
+                } label: {
+                    Label("Uninstall", systemImage: "trash.circle")
+                }
+                .buttonStyle(.bordered)
+                .tint(.red)
+
+                Text("Quit the app and move it to the Trash. You can also remove app data.")
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    // MARK: - Uninstall sheet
+    private var uninstallSheet: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Uninstall LaunchNow")
+                .font(.title2.bold())
+            Text("The app will quit and attempt to move itself to the Trash. You can also remove its data (Application Support and preferences).")
+                .foregroundStyle(.secondary)
+
+            Toggle("Also remove app data (Application Support and preferences)", isOn: $alsoRemoveData)
+
+            HStack {
+                Spacer()
+                Button("Cancel") {
+                    showUninstallSheet = false
+                }
+                Button(role: .destructive) {
+                    showUninstallSheet = false
+                    performUninstall(removeData: alsoRemoveData)
+                } label: {
+                    Text("Uninstall")
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding()
+        .frame(minWidth: 480)
+    }
+
+    // MARK: - Helpers
     func getVersion() -> String {
         return Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "未知"
     }
@@ -288,7 +575,6 @@ struct SettingsView: View {
     private func exportDataFolder() {
         do {
             let sourceDir = try supportDirectoryURL()
-            // Write settings JSON into the source directory so it’s included in the copy
             try writeSettingsFile(to: sourceDir)
 
             let panel = NSOpenPanel()
@@ -306,7 +592,7 @@ struct SettingsView: View {
                 try copyDirectory(from: sourceDir, to: destDir)
             }
         } catch {
-            // You could present an alert here if you want
+            // Handle error if desired
         }
     }
 
@@ -324,15 +610,11 @@ struct SettingsView: View {
                 let destDir = try supportDirectoryURL()
                 if srcDir.standardizedFileURL == destDir.standardizedFileURL { return }
                 try replaceDirectory(with: srcDir, at: destDir)
-
-                // Read settings back from imported folder and apply to AppStore
                 try applyImportedSettings(from: destDir)
-
-                // Then apply order/folders and refresh UI/cache
                 appStore.applyOrderAndFolders()
                 appStore.refresh()
             } catch {
-                // You could present an alert here if you want
+                // Handle error if desired
             }
         }
     }
@@ -404,10 +686,7 @@ struct SettingsView: View {
         guard FileManager.default.fileExists(atPath: url.path) else { return }
         let data = try Data(contentsOf: url)
         let decoded = try JSONDecoder().decode(ExportedSettings.self, from: data)
-
-        // Apply on main thread so SwiftUI updates correctly; AppStore didSet already persists to UserDefaults
         DispatchQueue.main.async {
-            // Order: fullscreen first, then grid (triggers compaction/refresh), then sensitivity
             self.appStore.isFullscreenMode = decoded.isFullscreenMode
             self.appStore.gridColumns = decoded.gridColumns
             self.appStore.gridRows = decoded.gridRows
@@ -422,7 +701,6 @@ struct SettingsView: View {
         let prefsDomain = Bundle.main.bundleIdentifier ?? ""
         let bundleID = Bundle.main.bundleIdentifier ?? ""
 
-        // สคริปต์ถอนการติดตั้ง: ย้ายแอปไปถังขยะ, เอา Pin ออกจาก Dock, ลบข้อมูลถ้าต้องการ แล้วลบตัวเอง
         let script = """
         #!/bin/bash
         APP_PATH="$1"
@@ -441,7 +719,6 @@ struct SettingsView: View {
           DEST="$TRASH/$BASENAME $i"
         done
 
-        # พยายามให้ Finder ลบไปถังขยะ (จะ handle permission/volume ให้)
         ATTEMPTS=200
         while [ $ATTEMPTS -gt 0 ]; do
           /usr/bin/osascript -e 'try
@@ -453,15 +730,12 @@ struct SettingsView: View {
           ATTEMPTS=$((ATTEMPTS-1))
         done
 
-        # หากยังอยู่ ให้ลบทิ้งแบบ force (ไม่ได้ไปถังขยะ)
         if [ -e "$APP_PATH" ]; then
           rm -rf "$APP_PATH"
         fi
 
-        # เอาไอคอนที่ปักหมุดออกจาก Dock (persistent-apps) แล้วรีสตาร์ท Dock
         PLIST="$HOME/Library/Preferences/com.apple.dock.plist"
         if [ -f "$PLIST" ]; then
-          # หา count ของ persistent-apps
           COUNT=0
           while /usr/libexec/PlistBuddy -c "Print :persistent-apps:$COUNT" "$PLIST" >/dev/null 2>&1; do
             COUNT=$((COUNT+1))
@@ -502,26 +776,18 @@ struct SettingsView: View {
             proc.arguments = [tmpURL.path, appPath, removeData ? "1" : "0", supportPath, prefsDomain, bundleID]
             try proc.run()
         } catch {
-            // ถ้ารันสคริปต์ไม่ได้ เปิด Finder โชว์แอปเพื่อให้ลบเอง
             NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: appPath)])
         }
 
-        // ปิด UI และจบโปรเซสให้แน่นอน
         DispatchQueue.main.async {
             let app = NSApplication.shared
-
-            // ปิดหน้าต่างทั้งหมดและซ่อนจาก Dock/แอปทันที
             for w in app.windows {
                 w.orderOut(nil)
                 w.close()
             }
             app.hide(nil)
             app.setActivationPolicy(.prohibited)
-
-            // ขอเลิกงานแบบสุภาพก่อน
             app.terminate(nil)
-
-            // Fallback: บังคับจบถ้ายังไม่ออก
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                 NSRunningApplication.current.forceTerminate()
                 exit(0)
@@ -530,6 +796,7 @@ struct SettingsView: View {
     }
 }
 
+// MARK: - Import/Remove sheets (kept for compatibility; not used by the new Apps pane)
 struct ImportAppsSheet: View {
     @ObservedObject var appStore: AppStore
     @Binding var isPresented: Bool
@@ -544,7 +811,6 @@ struct ImportAppsSheet: View {
     var body: some View {
         VStack(spacing: 12) {
             HStack(alignment: .center) {
-                // Title with padding and bold
                 Text("Select applications to add to Launchpad")
                     .font(.headline.bold())
                     .lineLimit(1)
@@ -553,7 +819,7 @@ struct ImportAppsSheet: View {
                 Spacer()
                 TextField("Search apps", text: $searchText)
                     .textFieldStyle(.roundedBorder)
-                    .frame(width: 300) // wider to avoid wrapping title
+                    .frame(width: 300)
             }
             .padding(.horizontal)
 
@@ -590,7 +856,7 @@ struct ImportAppsSheet: View {
                 }
                 .padding(.vertical, 6)
             }
-            .frame(minHeight: 320) // ลดส่วนแสดงรายการลงอีก
+            .frame(minHeight: 320)
 
             HStack {
                 Button("Select All") {
@@ -620,7 +886,7 @@ struct ImportAppsSheet: View {
     }
 }
 
-struct RemoveAppsSheet: View {
+struct RemoveAppsSheet: View { // unused by new UI, kept to avoid breaking references
     @ObservedObject var appStore: AppStore
     @Binding var isPresented: Bool
     @State private var selection = Set<String>()
@@ -654,7 +920,6 @@ struct RemoveAppsSheet: View {
     var body: some View {
         VStack(spacing: 12) {
             HStack(alignment: .center) {
-                // Title with padding and bold
                 Text("Select applications to remove from Launchpad")
                     .font(.headline.bold())
                     .lineLimit(1)
@@ -706,7 +971,7 @@ struct RemoveAppsSheet: View {
                 }
                 .padding(.vertical, 6)
             }
-            .frame(minHeight: 300) // ลดลงอีก
+            .frame(minHeight: 300)
 
             HStack {
                 Button("Select All") {
