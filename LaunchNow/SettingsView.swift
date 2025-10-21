@@ -8,6 +8,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
     case appearance
     case layout
     case apps
+    case appSources
     case data
     case about
 
@@ -19,6 +20,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
         case .appearance: return "Appearance"
         case .layout: return "Grid Layout"
         case .apps: return "App Management"
+        case .appSources: return "App Sources"
         case .data: return "Data"
         case .about: return "About"
         }
@@ -32,6 +34,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
         case .apps:
             // macOS 12.6 compatible symbol
             return "square.grid.2x2.fill"
+        case .appSources: return "externaldrive.fill"
         case .data: return "tray.and.arrow.down.fill"
         case .about: return "info.circle.fill"
         }
@@ -43,6 +46,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
         case .appearance: return .purple
         case .layout: return .green
         case .apps: return .orange
+        case .appSources: return .cyan
         case .data: return .teal
         case .about: return .gray
         }
@@ -209,6 +213,7 @@ struct SettingsView: View {
                     case .appearance: appearancePane
                     case .layout: layoutPane
                     case .apps: appsPane
+                    case .appSources: appSourcesPane
                     case .data: dataPane
                     case .about: aboutPane
                     }
@@ -446,6 +451,62 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - App Sources pane
+    private var appSourcesPane: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Manage additional app libraries")
+                    .font(.headline)
+                Text("Add external drives or custom folders so LaunchNow can gather apps beyond the default locations.")
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("System directories")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                ForEach(appStore.systemApplicationSearchPaths, id: \.self) { path in
+                    appSourceRow(title: displayName(for: path), path: path, isCustom: false)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Custom directories")
+                        .font(.subheadline.weight(.semibold))
+                    Spacer()
+                }
+                if appStore.customApplicationSearchPaths.isEmpty {
+                    Text("No custom directories yet. Add one to keep extra apps in sync.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .padding(.vertical, 8)
+                } else {
+                    ForEach(appStore.customApplicationSearchPaths, id: \.self) { path in
+                        appSourceRow(title: displayName(for: path), path: path, isCustom: true)
+                    }
+                }
+            }
+
+            HStack(spacing: 12) {
+                Button {
+                    presentAddAppSourcePanel()
+                } label: {
+                    Label("Add folders...", systemImage: "folder.badge.plus")
+                }
+                .buttonStyle(.bordered)
+
+                Button(role: .destructive) {
+                    appStore.restoreDefaultApplicationSearchPaths()
+                } label: {
+                    Label("Restore defaults", systemImage: "arrow.uturn.backward")
+                }
+                .buttonStyle(.bordered)
+                .disabled(appStore.customApplicationSearchPaths.isEmpty)
+            }
+        }
+    }
+
     // Aggregate all apps currently in Launchpad (including inside folders), unique + sorted
     private var allAppsInLaunchpad: [AppInfo] {
         var list: [AppInfo] = []
@@ -554,6 +615,69 @@ struct SettingsView: View {
         }
         .padding()
         .frame(minWidth: 480)
+    }
+
+    @ViewBuilder
+    private func appSourceRow(title: String, path: String, isCustom: Bool) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: isCustom ? "folder.fill" : "externaldrive.fill")
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(.white)
+                .frame(width: 32, height: 32)
+                .padding(8)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill((isCustom ? Color.orange : Color.blue).opacity(0.85))
+                )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.body.weight(.semibold))
+                Text(path)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+
+            Spacer()
+
+            if isCustom {
+                Button {
+                    appStore.removeCustomApplicationSearchPath(path)
+                } label: {
+                    Image(systemName: "minus.circle.fill")
+                        .foregroundStyle(.red)
+                }
+                .buttonStyle(.plain)
+                .help("Remove this folder")
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.primary.opacity(0.06))
+        )
+        .help(path)
+    }
+
+    private func presentAddAppSourcePanel() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = true
+        panel.canCreateDirectories = false
+        panel.prompt = "Add"
+        panel.message = "Choose folders that contain apps."
+        if panel.runModal() == .OK {
+            appStore.addCustomApplicationSearchPaths(from: panel.urls)
+        }
+    }
+
+    private func displayName(for path: String) -> String {
+        let url = URL(fileURLWithPath: path)
+        let name = url.lastPathComponent
+        return name.isEmpty ? path : name
     }
 
     // MARK: - Helpers

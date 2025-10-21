@@ -90,12 +90,45 @@ final class AppStore: ObservableObject {
     // 计算属性：每页项目数（由行列决定）
     var itemsPerPage: Int { max(1, gridColumns * gridRows) }
     
-    private let applicationSearchPaths: [String] = [
+    let systemApplicationSearchPaths: [String] = [
         "/Applications",
         "\(NSHomeDirectory())/Applications",
         "/System/Applications",
         "/System/Cryptexes/App/System/Applications"
     ]
+    
+    @Published var customApplicationSearchPaths: [String] = [] {
+        didSet {
+            guard !isInitializingCustomPaths else { return }
+            UserDefaults.standard.set(customApplicationSearchPaths, forKey: Self.customSearchPathsDefaultsKey)
+            applicationSearchPathsDidChange()
+        }
+    }
+    
+    private static let customSearchPathsDefaultsKey = "customApplicationSearchPaths"
+    private var isInitializingCustomPaths = false
+    
+    private var applicationSearchPaths: [String] {
+        var unique: [String] = []
+        var seen = Set<String>()
+        for path in systemApplicationSearchPaths {
+            let normalized = Self.normalizePath(path)
+            if seen.insert(normalized).inserted {
+                unique.append(normalized)
+            }
+        }
+        for path in customApplicationSearchPaths {
+            let normalized = Self.normalizePath(path)
+            if seen.insert(normalized).inserted {
+                unique.append(normalized)
+            }
+        }
+        return unique
+    }
+    
+    private static func normalizePath(_ path: String) -> String {
+        URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL.path
+    }
 
     init() {
         // 读取持久化设置
@@ -108,6 +141,23 @@ final class AppStore: ObservableObject {
         let savedRows = UserDefaults.standard.integer(forKey: "gridRows")
         self.gridColumns = savedCols == 0 ? 6 : max(3, min(savedCols, 12))
         self.gridRows = savedRows == 0 ? 4 : max(2, min(savedRows, 8))
+        
+        isInitializingCustomPaths = true
+        let storedCustomPaths = UserDefaults.standard.array(forKey: Self.customSearchPathsDefaultsKey) as? [String] ?? []
+        let normalizedStored = storedCustomPaths.map { Self.normalizePath($0) }
+        let systemSet = Set(systemApplicationSearchPaths.map { Self.normalizePath($0) })
+        var uniqueCustom: [String] = []
+        var seen = Set<String>()
+        for path in normalizedStored {
+            if path.isEmpty { continue }
+            if systemSet.contains(path) { continue }
+            if seen.insert(path).inserted {
+                uniqueCustom.append(path)
+            }
+        }
+        self.customApplicationSearchPaths = uniqueCustom
+        isInitializingCustomPaths = false
+        UserDefaults.standard.set(uniqueCustom, forKey: Self.customSearchPathsDefaultsKey)
     }
 
     private func applyGridChangeSideEffects() {
@@ -118,6 +168,51 @@ final class AppStore: ObservableObject {
         saveAllOrder()
         // 让缓存和 UI 同步
         refreshCacheAfterFolderOperation()
+    }
+    
+    // MARK: - Application Sources Management
+    func addCustomApplicationSearchPaths(from urls: [URL]) {
+        guard !urls.isEmpty else { return }
+        let systemSet = Set(systemApplicationSearchPaths.map { Self.normalizePath($0) })
+        var current = customApplicationSearchPaths
+        var existing = Set(current.map { Self.normalizePath($0) })
+        var didChange = false
+        for url in urls {
+            let normalized = Self.normalizePath(url.path)
+            if normalized.isEmpty { continue }
+            if systemSet.contains(normalized) { continue }
+            if existing.contains(normalized) { continue }
+            var isDir: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: normalized, isDirectory: &isDir), isDir.boolValue else { continue }
+            current.append(normalized)
+            existing.insert(normalized)
+            didChange = true
+        }
+        if didChange {
+            customApplicationSearchPaths = current
+        }
+    }
+    
+    func removeCustomApplicationSearchPath(_ path: String) {
+        let normalized = Self.normalizePath(path)
+        let updated = customApplicationSearchPaths.filter { $0 != normalized }
+        if updated.count != customApplicationSearchPaths.count {
+            customApplicationSearchPaths = updated
+        }
+    }
+    
+    func restoreDefaultApplicationSearchPaths() {
+        if !customApplicationSearchPaths.isEmpty {
+            customApplicationSearchPaths = []
+        }
+    }
+    
+    private func applicationSearchPathsDidChange() {
+        pendingChangedAppPaths.removeAll()
+        pendingForceFullScan = false
+        stopAutoRescan()
+        startAutoRescan()
+        scanApplicationsWithOrderPreservation()
     }
     
     func configure(modelContext: ModelContext) {
@@ -680,7 +775,12 @@ final class AppStore: ObservableObject {
     // MARK: - FSEvents wiring
     func startAutoRescan() {
         guard fsEventStream == nil else { return }
-        let pathsToWatch: [String] = applicationSearchPaths
+        let candidates = applicationSearchPaths
+        let pathsToWatch: [String] = candidates.filter { path in
+            var isDir: ObjCBool = false
+            return FileManager.default.fileExists(atPath: path, isDirectory: &isDir) && isDir.boolValue
+        }
+        guard !pathsToWatch.isEmpty else { return }
         var context = FSEventStreamContext(
             version: 0,
             info: UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque()),
@@ -1680,4 +1780,3 @@ final class AppStore: ObservableObject {
         }
     }
 }
-

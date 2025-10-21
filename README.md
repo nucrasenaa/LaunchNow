@@ -5,8 +5,9 @@
 LaunchNow is a polished fork of [ggkevinnnn/LaunchNow](https://github.com/ggkevinnnn/LaunchNow) that keeps your launchpad fast, organized, and fully under your control.
 
 ## Highlights
-- **Streamlined settings** with six clear sections: Appearance & Interaction, Grid Layout, App Management, App Settings Backup, Maintenance, and helpful UX notes.
+- **Streamlined settings** with intuitive sections for General, Appearance, Grid Layout, App Management, App Sources, Data, and About.
 - **Custom grid designer** to tune columns (3–12), rows (2–8), and instantly preview the layout.
+- **App Sources control** to add external drives or custom folders that LaunchNow monitors alongside the default system locations.
 - **Smart controls** for fullscreen classic mode, scrolling sensitivity, and background reminders.
 - **Power tools** to add, remove, or reset apps with searchable sheets and guardrails for destructive actions.
 - **Backup & restore** workflows that validate SwiftData stores before importing.
@@ -25,4 +26,3 @@ LaunchNow is a polished fork of [ggkevinnnn/LaunchNow](https://github.com/ggkevi
 ![LaunchNow grid view](https://github.com/user-attachments/assets/b6cacb58-0592-4c41-be56-ea8934b09f62)
 ![Settings layout](https://github.com/user-attachments/assets/4286bc71-01e3-4def-949f-0d37796ea282)
 ![App management tools](https://github.com/user-attachments/assets/6b690860-bd8f-41e9-bada-414da4f323cb)
-
