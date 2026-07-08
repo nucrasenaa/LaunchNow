@@ -1557,6 +1557,52 @@ extension LaunchpadView {
         
         // 结束前取消任何预定的重排，避免误触发
         cancelScheduledReorder()
+
+        // Re-check the final pointer position directly. The last drag update can be
+        // throttled, so relying only on isDragCreatingFolder may miss quick drops.
+        if case .app(let app) = dragging,
+           let folderTarget = folderDropTarget(for: dragging,
+                                               at: dragPreviewPosition,
+                                               containerSize: containerSize,
+                                               columnWidth: columnWidth,
+                                               appHeight: appHeight,
+                                               iconSize: iconSize) {
+            switch folderTarget {
+            case .app(let targetApp):
+                let insertAt = filteredItems.firstIndex(of: .app(targetApp))
+                let newFolder = appStore.createFolder(with: [app, targetApp], insertAt: insertAt)
+                if let folderIndex = filteredItems.firstIndex(of: .folder(newFolder)) {
+                    let targetCenter = cellCenter(for: folderIndex,
+                                                  in: containerSize,
+                                                  pageIndex: appStore.currentPage,
+                                                  columnWidth: columnWidth,
+                                                  appHeight: appHeight)
+                    withAnimation(LNAnimations.springFast) {
+                        dragPreviewPosition = targetCenter
+                        dragPreviewScale = 1.0
+                    }
+                }
+            case .folder(let folder):
+                appStore.addAppToFolder(app, folder: folder)
+                if let folderIndex = filteredItems.firstIndex(of: .folder(folder)) {
+                    let targetCenter = cellCenter(for: folderIndex,
+                                                  in: containerSize,
+                                                  pageIndex: appStore.currentPage,
+                                                  columnWidth: columnWidth,
+                                                  appHeight: appHeight)
+                    withAnimation(LNAnimations.springFast) {
+                        dragPreviewPosition = targetCenter
+                        dragPreviewScale = 1.0
+                    }
+                }
+            case .empty:
+                break
+            }
+            appStore.isDragCreatingFolder = false
+            appStore.folderCreationTarget = nil
+            finishDragInteraction(saveOrder: false)
+            return
+        }
         
         // 处理文件夹创建逻辑
         if appStore.isDragCreatingFolder, case .app(let app) = dragging {
@@ -1765,6 +1811,42 @@ extension LaunchpadView {
             appStore.folderCreationTarget = nil
             pendingDropIndex = hoveringIndex
         }
+    }
+
+    private func folderDropTarget(for dragging: LaunchpadItem,
+                                  at point: CGPoint,
+                                  containerSize: CGSize,
+                                  columnWidth: CGFloat,
+                                  appHeight: CGFloat,
+                                  iconSize: CGFloat) -> LaunchpadItem? {
+        guard case .app(let draggedApp) = dragging,
+              let hoveringIndex = indexAt(point: point,
+                                          in: containerSize,
+                                          pageIndex: appStore.currentPage,
+                                          columnWidth: columnWidth,
+                                          appHeight: appHeight),
+              currentItems.indices.contains(hoveringIndex),
+              pageOf(index: hoveringIndex) == appStore.currentPage else {
+            return nil
+        }
+
+        let hoveringItem = currentItems[hoveringIndex]
+        switch hoveringItem {
+        case .app(let targetApp) where targetApp != draggedApp:
+            break
+        case .folder:
+            break
+        default:
+            return nil
+        }
+
+        return isPointInCenterArea(point: point,
+                                   targetIndex: hoveringIndex,
+                                   containerSize: containerSize,
+                                   pageIndex: appStore.currentPage,
+                                   columnWidth: columnWidth,
+                                   appHeight: appHeight,
+                                   iconSize: iconSize) ? hoveringItem : nil
     }
     
     private func handleAppHover(

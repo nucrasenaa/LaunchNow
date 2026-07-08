@@ -32,6 +32,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         Self.shared = self
+        NSApp.setActivationPolicy(.regular)
         
         setupWindow()
         appStore.performInitialScanIfNeeded()
@@ -99,6 +100,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let screen = getCurrentActiveScreen() ?? NSScreen.main!
         let rect = appStore.isFullscreenMode ? screen.frame : calculateContentRect(for: screen)
         window.setFrame(rect, display: true)
+        window.level = appStore.isFullscreenMode ? .screenSaver : .floating
         applyCornerRadius()
         window.makeKey()
         lastShowAt = Date()
@@ -122,6 +124,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         guard let window = window else { return }
         let screen = getCurrentActiveScreen() ?? NSScreen.main!
         window.setFrame(isFullscreen ? screen.frame : calculateContentRect(for: screen), display: true)
+        window.level = isFullscreen ? .screenSaver : .floating
         window.hasShadow = !isFullscreen
         window.contentAspectRatio = isFullscreen ? NSSize(width: 0, height: 0) : NSSize(width: 4, height: 3)
         applyCornerRadius()
