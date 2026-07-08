@@ -65,7 +65,7 @@ struct SettingsView: View {
     @State private var showUninstallSheet = false
     @State private var alsoRemoveData = true
     @State private var isCheckingForUpdates = false
-    @State private var isDownloadingUpdate = false
+    @State private var isInstallingUpdate = false
     @State private var availableUpdate: AppUpdateInfo?
     @State private var updateStatusMessage: String?
 
@@ -622,16 +622,16 @@ struct SettingsView: View {
 
                     if let availableUpdate {
                         Button {
-                            downloadUpdate(availableUpdate)
+                            installUpdate(availableUpdate)
                         } label: {
-                            Label(localization.text(.downloadUpdate), systemImage: "square.and.arrow.down")
+                            Label(localization.text(.installUpdate), systemImage: "arrow.triangle.2.circlepath")
                         }
                         .buttonStyle(.borderedProminent)
-                        .disabled(isDownloadingUpdate)
+                        .disabled(isInstallingUpdate)
                     }
                 }
 
-                if isCheckingForUpdates || isDownloadingUpdate {
+                if isCheckingForUpdates || isInstallingUpdate {
                     ProgressView()
                         .controlSize(.small)
                 }
@@ -682,20 +682,22 @@ struct SettingsView: View {
         }
     }
 
-    private func downloadUpdate(_ update: AppUpdateInfo) {
-        isDownloadingUpdate = true
-        updateStatusMessage = localization.text(.downloadingUpdate)
+    private func installUpdate(_ update: AppUpdateInfo) {
+        isInstallingUpdate = true
+        updateStatusMessage = localization.text(.installingUpdate)
         Task {
             do {
-                let destinationURL = try await AppUpdateManager.shared.downloadAndOpen(update)
+                let destinationURL = try await AppUpdateManager.shared.downloadAndInstall(update)
                 await MainActor.run {
-                    updateStatusMessage = localization.text(.updateDownloadedFormat, destinationURL.lastPathComponent)
-                    isDownloadingUpdate = false
+                    updateStatusMessage = update.packageKind == .zip
+                        ? localization.text(.installingUpdateRelaunch)
+                        : localization.text(.updateDownloadedFormat, destinationURL.lastPathComponent)
+                    isInstallingUpdate = false
                 }
             } catch {
                 await MainActor.run {
-                    updateStatusMessage = localization.text(.updateDownloadFailed)
-                    isDownloadingUpdate = false
+                    updateStatusMessage = localization.text(.updateInstallFailed)
+                    isInstallingUpdate = false
                 }
             }
         }
@@ -781,7 +783,7 @@ struct SettingsView: View {
         panel.canCreateDirectories = false
         panel.prompt = localization.text(.add)
         panel.message = localization.text(.chooseFoldersContainingApps)
-        if panel.runModal() == .OK {
+        if AppPanelPresenter.runModal(panel) == .OK {
             appStore.addCustomApplicationSearchPaths(from: panel.urls)
         }
     }
@@ -820,7 +822,7 @@ struct SettingsView: View {
             panel.allowsMultipleSelection = false
             panel.prompt = localization.text(.choose)
             panel.message = localization.text(.chooseExportDestination)
-            if panel.runModal() == .OK, let destParent = panel.url {
+            if AppPanelPresenter.runModal(panel) == .OK, let destParent = panel.url {
                 let formatter = DateFormatter()
                 formatter.dateFormat = "yyyyMMdd_HHmmss"
                 let folderName = "LaunchNow_Export_" + formatter.string(from: Date())
@@ -840,7 +842,7 @@ struct SettingsView: View {
         panel.allowsMultipleSelection = false
         panel.prompt = localization.text(.import)
         panel.message = localization.text(.chooseImportFolder)
-        if panel.runModal() == .OK, let srcDir = panel.url {
+        if AppPanelPresenter.runModal(panel) == .OK, let srcDir = panel.url {
             do {
                 guard isValidExportFolder(srcDir) else { return }
                 let destDir = try supportDirectoryURL()

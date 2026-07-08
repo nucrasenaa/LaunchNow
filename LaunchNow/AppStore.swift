@@ -336,7 +336,7 @@ final class AppStore: ObservableObject {
         let localization = LocalizationManager.shared
         panel.prompt = localization.text(.import)
         panel.message = localization.text(.selectAppsToAdd)
-        if panel.runModal() == .OK {
+        if AppPanelPresenter.runModal(panel) == .OK {
             let urls = panel.urls
             importSelectedApps(urls: urls)
         }
@@ -979,7 +979,7 @@ final class AppStore: ObservableObject {
         panel.allowedContentTypes = [.image]
         panel.prompt = LocalizationManager.shared.text(.choose)
         panel.message = LocalizationManager.shared.text(.chooseCustomIcon)
-        if panel.runModal() == .OK, let iconURL = panel.url {
+        if AppPanelPresenter.runModal(panel) == .OK, let iconURL = panel.url {
             do {
                 try CustomAppIconManager.shared.setCustomIcon(from: iconURL, forAppPath: app.url.path)
                 refreshAppInfo(forAppPath: app.url.path)
@@ -1683,7 +1683,7 @@ final class AppStore: ObservableObject {
         if let desktopURL = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first {
             savePanel.directoryURL = desktopURL
         }
-        let response = savePanel.runModal()
+        let response = AppPanelPresenter.runModal(savePanel)
         if response == .OK, let url = savePanel.url {
             do {
                 try content.write(to: url, atomically: true, encoding: .utf8)

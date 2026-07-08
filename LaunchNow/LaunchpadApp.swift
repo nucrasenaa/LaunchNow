@@ -29,6 +29,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     
     let appStore = AppStore()
     var modelContainer: ModelContainer?
+
+    var mainWindow: NSWindow? {
+        window
+    }
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         Self.shared = self
@@ -37,6 +41,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         setupWindow()
         appStore.performInitialScanIfNeeded()
         appStore.startAutoRescan()
+        AppUpdateManager.shared.startAutomaticUpdateChecks()
         
         if appStore.isFullscreenMode { updateWindowMode(isFullscreen: true) }
     }

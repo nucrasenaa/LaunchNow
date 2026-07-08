@@ -132,9 +132,13 @@ enum L10nKey: String {
     case updateAvailableFormat
     case updateCheckFailed
     case downloadUpdate
+    case installUpdate
     case downloadingUpdate
+    case installingUpdate
+    case installingUpdateRelaunch
     case updateDownloadedFormat
     case updateDownloadFailed
+    case updateInstallFailed
     case uninstall
     case uninstallDescription
     case uninstallTitle
@@ -279,9 +283,13 @@ final class LocalizationManager: ObservableObject {
             .updateAvailableFormat: "Version %@ is available.",
             .updateCheckFailed: "Could not check for updates.",
             .downloadUpdate: "Download Update",
+            .installUpdate: "Install Update",
             .downloadingUpdate: "Downloading update...",
+            .installingUpdate: "Installing update...",
+            .installingUpdateRelaunch: "Installing update. LaunchNow will quit and reopen automatically.",
             .updateDownloadedFormat: "Downloaded %@ and opened the installer.",
             .updateDownloadFailed: "Could not download the update.",
+            .updateInstallFailed: "Could not install the update.",
             .uninstall: "Uninstall",
             .uninstallDescription: "Quit the app and move it to the Trash. You can also remove app data.",
             .uninstallTitle: "Uninstall LaunchNow",
@@ -378,9 +386,13 @@ final class LocalizationManager: ObservableObject {
             .updateAvailableFormat: "มีเวอร์ชัน %@ ให้ใช้งาน",
             .updateCheckFailed: "ไม่สามารถตรวจหาอัปเดตได้",
             .downloadUpdate: "ดาวน์โหลดอัปเดต",
+            .installUpdate: "ติดตั้งอัปเดต",
             .downloadingUpdate: "กำลังดาวน์โหลดอัปเดต...",
+            .installingUpdate: "กำลังติดตั้งอัปเดต...",
+            .installingUpdateRelaunch: "กำลังติดตั้งอัปเดต LaunchNow จะออกและเปิดใหม่ให้อัตโนมัติ",
             .updateDownloadedFormat: "ดาวน์โหลด %@ แล้ว และเปิดตัวติดตั้งให้แล้ว",
             .updateDownloadFailed: "ไม่สามารถดาวน์โหลดอัปเดตได้",
+            .updateInstallFailed: "ไม่สามารถติดตั้งอัปเดตได้",
             .uninstall: "ถอนการติดตั้ง",
             .uninstallDescription: "ออกจากแอปและย้ายไปถังขยะ สามารถลบข้อมูลแอปเพิ่มเติมได้",
             .uninstallTitle: "ถอนการติดตั้ง LaunchNow",
