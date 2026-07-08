@@ -124,8 +124,15 @@ final class AppUpdateManager {
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        process.arguments = [scriptURL.path]
+        process.arguments = [
+            "-c",
+            "nohup /bin/zsh \(shellQuoted(scriptURL.path)) >/dev/null 2>&1 &"
+        ]
         try process.run()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
+            throw URLError(.cannotCreateFile)
+        }
 
         await MainActor.run {
             NSApp.terminate(nil)
@@ -188,14 +195,27 @@ final class AppUpdateManager {
         workDirectoryPath: String,
         processID: Int32
     ) -> String {
+        let privilegedInstallCommand = """
+        /bin/rm -rf \(shellQuoted(destinationAppPath)) && /usr/bin/ditto \(shellQuoted(sourceAppPath)) \(shellQuoted(destinationAppPath)); status=$?; /usr/bin/xattr -dr com.apple.quarantine \(shellQuoted(destinationAppPath)) 2>/dev/null || true; exit $status
         """
+
+        return """
         #!/bin/zsh
-        set -e
+        set -u
 
         SOURCE_APP=\(shellQuoted(sourceAppPath))
         DESTINATION_APP=\(shellQuoted(destinationAppPath))
         WORK_DIR=\(shellQuoted(workDirectoryPath))
         OLD_PID=\(processID)
+        LOG_FILE="$HOME/Library/Logs/LaunchNowUpdater.log"
+
+        mkdir -p "$HOME/Library/Logs"
+        exec >> "$LOG_FILE" 2>&1
+
+        echo "---- LaunchNow updater started $(date) ----"
+        echo "source=$SOURCE_APP"
+        echo "destination=$DESTINATION_APP"
+        echo "old_pid=$OLD_PID"
 
         for _ in {1..80}; do
           if ! kill -0 "$OLD_PID" 2>/dev/null; then
@@ -204,16 +224,40 @@ final class AppUpdateManager {
           sleep 0.25
         done
 
-        rm -rf "$DESTINATION_APP"
-        /usr/bin/ditto "$SOURCE_APP" "$DESTINATION_APP"
-        /usr/bin/xattr -dr com.apple.quarantine "$DESTINATION_APP" 2>/dev/null || true
+        install_without_prompt() {
+          /bin/rm -rf "$DESTINATION_APP" &&
+          /usr/bin/ditto "$SOURCE_APP" "$DESTINATION_APP"
+          local status=$?
+          /usr/bin/xattr -dr com.apple.quarantine "$DESTINATION_APP" 2>/dev/null || true
+          return $status
+        }
+
+        if install_without_prompt; then
+          echo "installed without administrator privileges"
+        else
+          echo "direct install failed; requesting administrator privileges"
+          /usr/bin/osascript <<'APPLESCRIPT'
+        do shell script \(appleScriptStringLiteral(privilegedInstallCommand)) with administrator privileges
+        APPLESCRIPT
+        fi
+
+        INSTALLED_VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$DESTINATION_APP/Contents/Info.plist" 2>/dev/null || true)
+        echo "installed_version=$INSTALLED_VERSION"
         /usr/bin/open "$DESTINATION_APP"
         rm -rf "$WORK_DIR"
+        echo "---- LaunchNow updater finished $(date) ----"
         """
     }
 
     private func shellQuoted(_ value: String) -> String {
         "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    }
+
+    private func appleScriptStringLiteral(_ value: String) -> String {
+        "\"" + value
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: "\\n") + "\""
     }
 
     private var currentVersion: String {
