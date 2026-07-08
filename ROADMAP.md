@@ -7,7 +7,7 @@ Use this checklist to track future features. We can work through them one by one
 - [x] 1. Rename App Display Name
   - Let users set a custom display name per app without renaming the real `.app` bundle.
 
-- [ ] 2. Custom Folder Icon
+- [x] 2. Custom Folder Icon
   - Let users choose a custom icon for folders, matching the custom app icon flow.
 
 - [ ] 3. Right-click Context Menu

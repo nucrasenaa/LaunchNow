@@ -989,6 +989,42 @@ final class AppStore: ObservableObject {
         }
     }
 
+    func presentChangeFolderIconPanel(for folder: FolderInfo) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.image]
+        panel.prompt = LocalizationManager.shared.text(.choose)
+        panel.message = LocalizationManager.shared.text(.chooseCustomFolderIcon)
+        if AppPanelPresenter.runModal(panel) == .OK, let iconURL = panel.url {
+            do {
+                try CustomFolderIconManager.shared.setCustomIcon(from: iconURL, forFolderId: folder.id)
+                refreshFolderIcon(forFolderId: folder.id)
+            } catch {
+                NSSound.beep()
+            }
+        }
+    }
+
+    func resetCustomFolderIcon(for folder: FolderInfo) {
+        CustomFolderIconManager.shared.resetCustomIcon(forFolderId: folder.id)
+        refreshFolderIcon(forFolderId: folder.id)
+    }
+
+    func hasCustomFolderIcon(for folder: FolderInfo) -> Bool {
+        CustomFolderIconManager.shared.hasCustomIcon(forFolderId: folder.id)
+    }
+
+    private func refreshFolderIcon(forFolderId folderId: String) {
+        cacheManager.clearAllCaches()
+        triggerFolderUpdate()
+        triggerGridRefresh()
+        if let openFolder, openFolder.id == folderId {
+            self.openFolder = folders.first(where: { $0.id == folderId }) ?? openFolder
+        }
+    }
+
     func resetCustomIcon(for app: AppInfo) {
         CustomAppIconManager.shared.resetCustomIcon(forAppPath: app.url.path)
         refreshAppInfo(forAppPath: app.url.path)

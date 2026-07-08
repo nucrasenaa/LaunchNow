@@ -23,6 +23,9 @@ struct FolderInfo: Identifiable, Equatable {
 
     func icon(of side: CGFloat) -> NSImage {
         let normalizedSide = max(16, side)
+        if let customIcon = CustomFolderIconManager.shared.customIcon(forFolderId: id) {
+            return customIcon
+        }
         let icon = renderFolderIcon(side: normalizedSide)
         return icon
     }

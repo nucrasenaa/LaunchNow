@@ -485,6 +485,61 @@ struct SettingsView: View {
                         .padding(.vertical, 12)
                 }
             }
+
+            Divider().padding(.vertical, 4)
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text(localization.text(.folders))
+                    .font(.headline)
+
+                ForEach(filteredFoldersForIconList, id: \.id) { folder in
+                    HStack(spacing: 12) {
+                        Image(nsImage: folder.icon(of: 32))
+                            .resizable()
+                            .interpolation(.high)
+                            .antialiased(true)
+                            .frame(width: 32, height: 32)
+                            .cornerRadius(6)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(folder.name)
+                                .font(.body.weight(.semibold))
+                            Text("\(folder.apps.count)")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        Button {
+                            appStore.presentChangeFolderIconPanel(for: folder)
+                        } label: {
+                            Label(localization.text(.changeIcon), systemImage: "photo")
+                        }
+                        .buttonStyle(.bordered)
+
+                        if appStore.hasCustomFolderIcon(for: folder) {
+                            Button {
+                                appStore.resetCustomFolderIcon(for: folder)
+                            } label: {
+                                Label(localization.text(.resetIcon), systemImage: "arrow.counterclockwise")
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                    .padding(10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.primary.opacity(0.06))
+                    )
+                }
+
+                if filteredFoldersForIconList.isEmpty {
+                    Text(appListSearchText.isEmpty ? localization.text(.noFoldersInLaunchpad) : localization.text(.noResults))
+                        .foregroundStyle(.secondary)
+                        .padding(.vertical, 12)
+                }
+            }
         }
     }
 
@@ -565,6 +620,11 @@ struct SettingsView: View {
     private var filteredAppsForRemoveList: [AppInfo] {
         guard !appListSearchText.isEmpty else { return allAppsInLaunchpad }
         return allAppsInLaunchpad.filter { $0.name.localizedCaseInsensitiveContains(appListSearchText) }
+    }
+
+    private var filteredFoldersForIconList: [FolderInfo] {
+        guard !appListSearchText.isEmpty else { return appStore.folders }
+        return appStore.folders.filter { $0.name.localizedCaseInsensitiveContains(appListSearchText) }
     }
 
     private var dataPane: some View {

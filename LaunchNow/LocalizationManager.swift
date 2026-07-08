@@ -109,6 +109,9 @@ enum L10nKey: String {
     case changeIcon
     case resetIcon
     case chooseCustomIcon
+    case folders
+    case chooseCustomFolderIcon
+    case noFoldersInLaunchpad
     case removeAppsDescription
     case searchApps
     case remove
@@ -260,6 +263,9 @@ final class LocalizationManager: ObservableObject {
             .changeIcon: "Change Icon",
             .resetIcon: "Reset Icon",
             .chooseCustomIcon: "Choose an image to use as this app icon.",
+            .folders: "Folders",
+            .chooseCustomFolderIcon: "Choose an image to use as this folder icon.",
+            .noFoldersInLaunchpad: "No folders in Launchpad.",
             .removeAppsDescription: "Remove apps from Launchpad (does not delete apps from disk).",
             .searchApps: "Search apps",
             .remove: "Remove",
@@ -363,6 +369,9 @@ final class LocalizationManager: ObservableObject {
             .changeIcon: "เปลี่ยนไอคอน",
             .resetIcon: "รีเซ็ตไอคอน",
             .chooseCustomIcon: "เลือกรูปภาพเพื่อใช้เป็นไอคอนของแอปนี้",
+            .folders: "โฟลเดอร์",
+            .chooseCustomFolderIcon: "เลือกรูปภาพเพื่อใช้เป็นไอคอนของโฟลเดอร์นี้",
+            .noFoldersInLaunchpad: "ยังไม่มีโฟลเดอร์ใน Launchpad",
             .removeAppsDescription: "นำแอปออกจาก Launchpad (ไม่ลบแอปออกจากเครื่อง)",
             .searchApps: "ค้นหาแอป",
             .remove: "นำออก",
