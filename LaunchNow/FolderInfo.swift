@@ -8,7 +8,7 @@ struct FolderInfo: Identifiable, Equatable {
     var apps: [AppInfo]
     let createdAt: Date
     
-    init(id: String = UUID().uuidString, name: String = "Untitled", apps: [AppInfo] = [], createdAt: Date = Date()) {
+    init(id: String = UUID().uuidString, name: String = LocalizationManager.shared.text(.untitledFolder), apps: [AppInfo] = [], createdAt: Date = Date()) {
         self.id = id
         self.name = name
         self.apps = apps

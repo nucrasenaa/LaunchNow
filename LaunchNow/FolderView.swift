@@ -3,6 +3,7 @@ import AppKit
 
 struct FolderView: View {
     @ObservedObject var appStore: AppStore
+    @ObservedObject private var localization = LocalizationManager.shared
     @Binding var folder: FolderInfo
     // 若提供，将强制使用与外层一致的图标尺寸
     var preferredIconSize: CGFloat? = nil
@@ -114,7 +115,7 @@ struct FolderView: View {
             Spacer()
             VStack(spacing: 8) {
                 if isEditingName {
-                    TextField("Folder Name", text: $folderName)
+                    TextField(localization.text(.folderName), text: $folderName)
                         .textFieldStyle(.plain)
                         .multilineTextAlignment(.center)
                         .font(.title)

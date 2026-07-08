@@ -33,6 +33,7 @@ private class PageFlipManager: ObservableObject {
 
 struct LaunchpadView: View {
     @ObservedObject var appStore: AppStore
+    @ObservedObject private var localization = LocalizationManager.shared
     @State private var keyMonitor: Any?
     @State private var windowObserver: NSObjectProtocol?
     @State private var windowHiddenObserver: NSObjectProtocol?
@@ -185,7 +186,7 @@ struct LaunchpadView: View {
                         .frame(height: actualTopPadding)
                 }
                 HStack(spacing: 8) {
-                    TextField("Search", text: $appStore.searchText)
+                    TextField(localization.text(.search), text: $appStore.searchText)
                     .disabled(isFolderOpen)
                     .onChange(of: appStore.searchText) {
                         guard !isFolderOpen else { return }
@@ -255,7 +256,7 @@ struct LaunchpadView: View {
                             Image(systemName: "magnifyingglass")
                                 .font(.largeTitle)
                                 .foregroundStyle(.placeholder)
-                            Text("No apps found")
+                            Text(localization.text(.noAppsFound))
                                 .font(.title)
                                 .foregroundStyle(.placeholder)
                         }

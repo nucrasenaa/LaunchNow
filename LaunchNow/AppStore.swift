@@ -333,8 +333,9 @@ final class AppStore: ObservableObject {
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = true
         panel.allowedContentTypes = [UTType(filenameExtension: "app") ?? .applicationBundle]
-        panel.prompt = "Import"
-        panel.message = "Select applications to add to Launchpad"
+        let localization = LocalizationManager.shared
+        panel.prompt = localization.text(.import)
+        panel.message = localization.text(.selectAppsToAdd)
         if panel.runModal() == .OK {
             let urls = panel.urls
             importSelectedApps(urls: urls)
@@ -758,7 +759,7 @@ final class AppStore: ObservableObject {
                         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
                         return self.appInfo(from: url)
                     }
-                    let folder = FolderInfo(id: fid, name: row.folderName ?? "Untitled", apps: folderApps, createdAt: row.createdAt)
+                    let folder = FolderInfo(id: fid, name: row.folderName ?? LocalizationManager.shared.text(.untitledFolder), apps: folderApps, createdAt: row.createdAt)
                     folderMap[fid] = folder
                     foldersInOrder.append(folder)
                 }
@@ -969,11 +970,11 @@ final class AppStore: ObservableObject {
     }
     
     // MARK: - 文件夹管理
-    func createFolder(with apps: [AppInfo], name: String = "Untitled") -> FolderInfo {
+    func createFolder(with apps: [AppInfo], name: String = LocalizationManager.shared.text(.untitledFolder)) -> FolderInfo {
         return createFolder(with: apps, name: name, insertAt: nil)
     }
 
-    func createFolder(with apps: [AppInfo], name: String = "Untitled", insertAt insertIndex: Int?) -> FolderInfo {
+    func createFolder(with apps: [AppInfo], name: String = LocalizationManager.shared.text(.untitledFolder), insertAt insertIndex: Int?) -> FolderInfo {
         let folder = FolderInfo(name: name, apps: apps)
         folders.append(folder)
         for app in apps {
@@ -1276,7 +1277,7 @@ final class AppStore: ObservableObject {
                     guard FileManager.default.fileExists(atPath: url.path) else { return nil }
                     return self.appInfo(from: url)
                 }
-                let folder = FolderInfo(id: fid, name: row.folderName ?? "Untitled", apps: folderApps, createdAt: row.createdAt)
+                let folder = FolderInfo(id: fid, name: row.folderName ?? LocalizationManager.shared.text(.untitledFolder), apps: folderApps, createdAt: row.createdAt)
                 folderMap[fid] = folder
                 foldersInOrder.append(folder)
             }
@@ -1341,7 +1342,7 @@ final class AppStore: ObservableObject {
                     guard FileManager.default.fileExists(atPath: url.path) else { return nil }
                     return self.appInfo(from: url)
                 }
-                let folder = FolderInfo(id: row.id, name: row.folderName ?? "Untitled", apps: folderApps, createdAt: row.createdAt)
+                let folder = FolderInfo(id: row.id, name: row.folderName ?? LocalizationManager.shared.text(.untitledFolder), apps: folderApps, createdAt: row.createdAt)
                 folderMap[row.id] = folder
                 foldersInOrder.append(folder)
             }

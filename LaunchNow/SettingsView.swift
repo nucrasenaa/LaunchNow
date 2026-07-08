@@ -14,15 +14,15 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    var title: String {
+    func title(_ localization: LocalizationManager) -> String {
         switch self {
-        case .general: return "General"
-        case .appearance: return "Appearance"
-        case .layout: return "Grid Layout"
-        case .apps: return "App Management"
-        case .appSources: return "App Sources"
-        case .data: return "Data"
-        case .about: return "About"
+        case .general: return localization.text(.general)
+        case .appearance: return localization.text(.appearance)
+        case .layout: return localization.text(.gridLayout)
+        case .apps: return localization.text(.appManagement)
+        case .appSources: return localization.text(.appSources)
+        case .data: return localization.text(.data)
+        case .about: return localization.text(.about)
         }
     }
 
@@ -55,6 +55,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
 
 struct SettingsView: View {
     @ObservedObject var appStore: AppStore
+    @ObservedObject private var localization = LocalizationManager.shared
 
     // Sheet / alert states
     @State private var showResetConfirm = false
@@ -66,7 +67,7 @@ struct SettingsView: View {
 
     // UI state
     @State private var selected: SettingsSection = .general
-    @State private var tempLanguage: String = Locale.current.localizedString(forLanguageCode: Locale.current.language.languageCode?.identifier ?? "en") ?? "English"
+    @State private var selectedLanguage: AppLanguage = LocalizationManager.shared.language
 
     // App list search (Apps pane)
     @State private var appListSearchText: String = ""
@@ -125,17 +126,17 @@ struct SettingsView: View {
                 .frame(maxHeight: sheetMaxHeight)
         }
         .sheet(isPresented: $showUninstallSheet) { uninstallSheet }
-        .alert("Confirm to reset layout?", isPresented: $showResetConfirm) {
-            Button("Reset", role: .destructive) { appStore.resetLayout() }
-            Button("Cancel", role: .cancel) {}
+        .alert(localization.text(.confirmResetLayout), isPresented: $showResetConfirm) {
+            Button(localization.text(.reset), role: .destructive) { appStore.resetLayout() }
+            Button(localization.text(.cancel), role: .cancel) {}
         } message: {
-            Text("This will reset layout and rescan available apps. It won’t auto-add apps to Launchpad.")
+            Text(localization.text(.confirmResetLayoutMessage))
         }
-        .alert("Clear all apps from Launchpad?", isPresented: $showResetAppsConfirm) {
-            Button("Clear", role: .destructive) { appStore.resetImportedApps() }
-            Button("Cancel", role: .cancel) {}
+        .alert(localization.text(.confirmClearApps), isPresented: $showResetAppsConfirm) {
+            Button(localization.text(.clear), role: .destructive) { appStore.resetImportedApps() }
+            Button(localization.text(.cancel), role: .cancel) {}
         } message: {
-            Text("This will remove all apps, folders and layout from Launchpad. Your applications on disk are not affected.")
+            Text(localization.text(.confirmClearAppsMessage))
         }
     }
 
@@ -169,7 +170,7 @@ struct SettingsView: View {
                                         Circle().fill(section.tint)
                                     )
 
-                                Text(section.title)
+                                Text(section.title(localization))
                                     .font(.body)
                                     .foregroundStyle(.primary)
                                 Spacer()
@@ -197,7 +198,7 @@ struct SettingsView: View {
         VStack(spacing: 0) {
             // Section title
             HStack {
-                Text(selected.title)
+                Text(selected.title(localization))
                     .font(.title2.bold())
                 Spacer()
             }
@@ -229,7 +230,7 @@ struct SettingsView: View {
                 Button {
                     appStore.refresh()
                 } label: {
-                    Label("Refresh", systemImage: "arrow.clockwise")
+                    Label(localization.text(.refresh), systemImage: "arrow.clockwise")
                 }
                 .buttonStyle(.bordered)
 
@@ -238,7 +239,7 @@ struct SettingsView: View {
                 Button {
                     showResetConfirm = true
                 } label: {
-                    Label("Reset Layout", systemImage: "arrow.counterclockwise")
+                    Label(localization.text(.resetLayout), systemImage: "arrow.counterclockwise")
                 }
                 .buttonStyle(.bordered)
                 .tint(.red)
@@ -246,7 +247,7 @@ struct SettingsView: View {
                 Button {
                     exit(0)
                 } label: {
-                    Label("Quit", systemImage: "xmark.circle")
+                    Label(localization.text(.quit), systemImage: "xmark.circle")
                 }
                 .buttonStyle(.bordered)
                 .tint(.red)
@@ -261,25 +262,25 @@ struct SettingsView: View {
     private var generalPane: some View {
         VStack(alignment: .leading, spacing: 24) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Language")
+                Text(localization.text(.language))
                     .font(.headline)
-                Picker("", selection: $tempLanguage) {
-                    Text("English").tag("English")
-                    Text("System").tag("System")
+                Picker("", selection: $selectedLanguage) {
+                    ForEach(AppLanguage.allCases) { language in
+                        Text(localization.text(language.displayNameKey)).tag(language)
+                    }
                 }
                 .labelsHidden()
                 .pickerStyle(.menu)
                 .frame(width: 200)
-                .disabled(true)
-                Text("This feature is in development.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                .onChange(of: selectedLanguage) { _, newValue in
+                    localization.language = newValue
+                }
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Run in background")
+                Text(localization.text(.runInBackground))
                     .font(.headline)
-                Text("Add LaunchNow to the Dock or use keyboard shortcuts to open the window quickly.")
+                Text(localization.text(.runInBackgroundDescription))
                     .foregroundStyle(.secondary)
             }
         }
@@ -288,23 +289,23 @@ struct SettingsView: View {
     private var appearancePane: some View {
         VStack(alignment: .leading, spacing: 24) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Classic Launchpad (Fullscreen)")
+                Text(localization.text(.classicLaunchpad))
                     .font(.headline)
                 Toggle(isOn: $appStore.isFullscreenMode) {
-                    Text("Use fullscreen layout and spacing")
+                    Text(localization.text(.fullscreenLayout))
                 }
                 .toggleStyle(.switch)
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Scrolling sensitivity")
+                Text(localization.text(.scrollingSensitivity))
                     .font(.headline)
                 Slider(value: $appStore.scrollSensitivity, in: 0.01...0.99)
                     .frame(maxWidth: 380)
                 HStack {
-                    Text("Low").font(.footnote).foregroundStyle(.secondary)
+                    Text(localization.text(.low)).font(.footnote).foregroundStyle(.secondary)
                     Spacer()
-                    Text("High").font(.footnote).foregroundStyle(.secondary)
+                    Text(localization.text(.high)).font(.footnote).foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: 380)
             }
@@ -325,7 +326,7 @@ struct SettingsView: View {
         return VStack(alignment: .leading, spacing: 24) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text("Columns").font(.headline)
+                    Text(localization.text(.columns)).font(.headline)
                     Spacer()
                     Text("\(appStore.gridColumns)")
                         .foregroundStyle(.secondary)
@@ -337,14 +338,14 @@ struct SettingsView: View {
                     Spacer()
                     Text("12").font(.footnote).foregroundStyle(.secondary)
                 }
-                Text("Number of app columns per page")
+                Text(localization.text(.appColumnsDescription))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text("Rows").font(.headline)
+                    Text(localization.text(.rows)).font(.headline)
                     Spacer()
                     Text("\(appStore.gridRows)")
                         .foregroundStyle(.secondary)
@@ -356,13 +357,13 @@ struct SettingsView: View {
                     Spacer()
                     Text("8").font(.footnote).foregroundStyle(.secondary)
                 }
-                Text("Number of app rows per page")
+                Text(localization.text(.appRowsDescription))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
 
             HStack {
-                Text("Items per page")
+                Text(localization.text(.itemsPerPage))
                     .font(.headline)
                 Spacer()
                 Text("\(appStore.gridRows * appStore.gridColumns)")
@@ -383,25 +384,25 @@ struct SettingsView: View {
                     }
                     isImportSheetPresented = true
                 } label: {
-                    Label("Add App", systemImage: "plus.app")
+                    Label(localization.text(.addApp), systemImage: "plus.app")
                 }
                 .buttonStyle(.borderedProminent)
 
                 Button(role: .destructive) {
                     showResetAppsConfirm = true
                 } label: {
-                    Label("Reset App", systemImage: "trash")
+                    Label(localization.text(.resetApp), systemImage: "trash")
                 }
                 .buttonStyle(.bordered)
                 .tint(.red)
             }
 
-            Text("Remove apps from Launchpad (does not delete apps from disk).")
+            Text(localization.text(.removeAppsDescription))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
 
             // Search
-            TextField("Search apps", text: $appListSearchText)
+            TextField(localization.text(.searchApps), text: $appListSearchText)
                 .textFieldStyle(.roundedBorder)
                 .frame(maxWidth: 420)
 
@@ -429,7 +430,7 @@ struct SettingsView: View {
                         Button(role: .destructive) {
                             appStore.removeSelectedApps(fromAppInfos: [app])
                         } label: {
-                            Text("Remove")
+                            Text(localization.text(.remove))
                         }
                         .buttonStyle(.bordered)
                         .tint(.red)
@@ -443,7 +444,7 @@ struct SettingsView: View {
                 }
 
                 if filteredAppsForRemoveList.isEmpty {
-                    Text(appListSearchText.isEmpty ? "No apps in Launchpad." : "No results.")
+                    Text(appListSearchText.isEmpty ? localization.text(.noAppsInLaunchpad) : localization.text(.noResults))
                         .foregroundStyle(.secondary)
                         .padding(.vertical, 12)
                 }
@@ -455,14 +456,14 @@ struct SettingsView: View {
     private var appSourcesPane: some View {
         VStack(alignment: .leading, spacing: 24) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Manage additional app libraries")
+                Text(localization.text(.manageAppLibraries))
                     .font(.headline)
-                Text("Add external drives or custom folders so LaunchNow can gather apps beyond the default locations.")
+                Text(localization.text(.appLibrariesDescription))
                     .foregroundStyle(.secondary)
             }
 
             VStack(alignment: .leading, spacing: 12) {
-                Text("System directories")
+                Text(localization.text(.systemDirectories))
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.secondary)
                 ForEach(appStore.systemApplicationSearchPaths, id: \.self) { path in
@@ -472,12 +473,12 @@ struct SettingsView: View {
 
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text("Custom directories")
+                    Text(localization.text(.customDirectories))
                         .font(.subheadline.weight(.semibold))
                     Spacer()
                 }
                 if appStore.customApplicationSearchPaths.isEmpty {
-                    Text("No custom directories yet. Add one to keep extra apps in sync.")
+                    Text(localization.text(.noCustomDirectories))
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .padding(.vertical, 8)
@@ -492,14 +493,14 @@ struct SettingsView: View {
                 Button {
                     presentAddAppSourcePanel()
                 } label: {
-                    Label("Add folders...", systemImage: "folder.badge.plus")
+                    Label(localization.text(.addFolders), systemImage: "folder.badge.plus")
                 }
                 .buttonStyle(.bordered)
 
                 Button(role: .destructive) {
                     appStore.restoreDefaultApplicationSearchPaths()
                 } label: {
-                    Label("Restore defaults", systemImage: "arrow.uturn.backward")
+                    Label(localization.text(.restoreDefaults), systemImage: "arrow.uturn.backward")
                 }
                 .buttonStyle(.bordered)
                 .disabled(appStore.customApplicationSearchPaths.isEmpty)
@@ -536,19 +537,19 @@ struct SettingsView: View {
                 Button {
                     exportDataFolder()
                 } label: {
-                    Label("Export Data", systemImage: "square.and.arrow.up")
+                    Label(localization.text(.exportData), systemImage: "square.and.arrow.up")
                 }
                 .buttonStyle(.bordered)
 
                 Button {
                     importDataFolder()
                 } label: {
-                    Label("Import Data", systemImage: "square.and.arrow.down")
+                    Label(localization.text(.importData), systemImage: "square.and.arrow.down")
                 }
                 .buttonStyle(.bordered)
             }
 
-            Text("Export/Import includes your layout, folders and settings.")
+            Text(localization.text(.exportImportDescription))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
@@ -564,11 +565,11 @@ struct SettingsView: View {
                 VStack(alignment: .leading) {
                     Text("LaunchNow")
                         .font(.title3.bold())
-                    Text("Version \(getVersion())")
+                    Text(localization.text(.versionFormat, getVersion()))
                         .foregroundStyle(.secondary)
                 }
             }
-            Text("A lightweight Launchpad-like app launcher.")
+            Text(localization.text(.aboutDescription))
                 .foregroundStyle(.secondary)
 
             Divider().padding(.vertical, 8)
@@ -578,12 +579,12 @@ struct SettingsView: View {
                 Button {
                     showUninstallSheet = true
                 } label: {
-                    Label("Uninstall", systemImage: "trash.circle")
+                    Label(localization.text(.uninstall), systemImage: "trash.circle")
                 }
                 .buttonStyle(.bordered)
                 .tint(.red)
 
-                Text("Quit the app and move it to the Trash. You can also remove app data.")
+                Text(localization.text(.uninstallDescription))
                     .foregroundStyle(.secondary)
             }
         }
@@ -592,23 +593,23 @@ struct SettingsView: View {
     // MARK: - Uninstall sheet
     private var uninstallSheet: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Uninstall LaunchNow")
+            Text(localization.text(.uninstallTitle))
                 .font(.title2.bold())
-            Text("The app will quit and attempt to move itself to the Trash. You can also remove its data (Application Support and preferences).")
+            Text(localization.text(.uninstallWarning))
                 .foregroundStyle(.secondary)
 
-            Toggle("Also remove app data (Application Support and preferences)", isOn: $alsoRemoveData)
+            Toggle(localization.text(.alsoRemoveData), isOn: $alsoRemoveData)
 
             HStack {
                 Spacer()
-                Button("Cancel") {
+                Button(localization.text(.cancel)) {
                     showUninstallSheet = false
                 }
                 Button(role: .destructive) {
                     showUninstallSheet = false
                     performUninstall(removeData: alsoRemoveData)
                 } label: {
-                    Text("Uninstall")
+                    Text(localization.text(.uninstall))
                 }
                 .keyboardShortcut(.defaultAction)
             }
@@ -650,7 +651,7 @@ struct SettingsView: View {
                         .foregroundStyle(.red)
                 }
                 .buttonStyle(.plain)
-                .help("Remove this folder")
+                .help(localization.text(.removeThisFolder))
             }
         }
         .padding(12)
@@ -667,8 +668,8 @@ struct SettingsView: View {
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = true
         panel.canCreateDirectories = false
-        panel.prompt = "Add"
-        panel.message = "Choose folders that contain apps."
+        panel.prompt = localization.text(.add)
+        panel.message = localization.text(.chooseFoldersContainingApps)
         if panel.runModal() == .OK {
             appStore.addCustomApplicationSearchPaths(from: panel.urls)
         }
@@ -706,8 +707,8 @@ struct SettingsView: View {
             panel.canChooseDirectories = true
             panel.canCreateDirectories = true
             panel.allowsMultipleSelection = false
-            panel.prompt = "Choose"
-            panel.message = "Choose a destination folder to export LaunchNow data"
+            panel.prompt = localization.text(.choose)
+            panel.message = localization.text(.chooseExportDestination)
             if panel.runModal() == .OK, let destParent = panel.url {
                 let formatter = DateFormatter()
                 formatter.dateFormat = "yyyyMMdd_HHmmss"
@@ -726,8 +727,8 @@ struct SettingsView: View {
         panel.canChooseDirectories = true
         panel.canCreateDirectories = false
         panel.allowsMultipleSelection = false
-        panel.prompt = "Import"
-        panel.message = "Choose a folder previously exported from LaunchNow"
+        panel.prompt = localization.text(.import)
+        panel.message = localization.text(.chooseImportFolder)
         if panel.runModal() == .OK, let srcDir = panel.url {
             do {
                 guard isValidExportFolder(srcDir) else { return }
@@ -923,6 +924,7 @@ struct SettingsView: View {
 // MARK: - Import/Remove sheets (kept for compatibility; not used by the new Apps pane)
 struct ImportAppsSheet: View {
     @ObservedObject var appStore: AppStore
+    @ObservedObject private var localization = LocalizationManager.shared
     @Binding var isPresented: Bool
     @State private var selection = Set<String>()
     @State private var searchText: String = ""
@@ -935,13 +937,13 @@ struct ImportAppsSheet: View {
     var body: some View {
         VStack(spacing: 12) {
             HStack(alignment: .center) {
-                Text("Select applications to add to Launchpad")
+                Text(localization.text(.selectAppsToAdd))
                     .font(.headline.bold())
                     .lineLimit(1)
                     .layoutPriority(1)
                     .padding(.vertical, 8)
                 Spacer()
-                TextField("Search apps", text: $searchText)
+                TextField(localization.text(.searchApps), text: $searchText)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 300)
             }
@@ -983,17 +985,17 @@ struct ImportAppsSheet: View {
             .frame(minHeight: 320)
 
             HStack {
-                Button("Select All") {
+                Button(localization.text(.selectAll)) {
                     selection = Set(filteredApps.map { $0.id })
                 }
-                Button("Clear") {
+                Button(localization.text(.clear)) {
                     selection.removeAll()
                 }
                 Spacer()
-                Button("Cancel") {
+                Button(localization.text(.cancel)) {
                     isPresented = false
                 }
-                Button("Import") {
+                Button(localization.text(.import)) {
                     let selectedInfos = appStore.availableApps.filter { selection.contains($0.id) }
                     appStore.importSelectedApps(fromAppInfos: selectedInfos)
                     isPresented = false
@@ -1012,6 +1014,7 @@ struct ImportAppsSheet: View {
 
 struct RemoveAppsSheet: View { // unused by new UI, kept to avoid breaking references
     @ObservedObject var appStore: AppStore
+    @ObservedObject private var localization = LocalizationManager.shared
     @Binding var isPresented: Bool
     @State private var selection = Set<String>()
     @State private var searchText: String = ""
@@ -1044,20 +1047,20 @@ struct RemoveAppsSheet: View { // unused by new UI, kept to avoid breaking refer
     var body: some View {
         VStack(spacing: 12) {
             HStack(alignment: .center) {
-                Text("Select applications to remove from Launchpad")
+                Text(localization.text(.selectAppsToRemove))
                     .font(.headline.bold())
                     .lineLimit(1)
                     .layoutPriority(1)
                     .padding(.vertical, 8)
                 Spacer()
-                TextField("Search apps", text: $searchText)
+                TextField(localization.text(.searchApps), text: $searchText)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 300)
             }
             .padding(.horizontal)
 
             HStack {
-                Toggle("Include apps inside folders", isOn: $includeFolderApps)
+                Toggle(localization.text(.includeFolderApps), isOn: $includeFolderApps)
                 Spacer()
             }
             .padding(.horizontal)
@@ -1098,17 +1101,17 @@ struct RemoveAppsSheet: View { // unused by new UI, kept to avoid breaking refer
             .frame(minHeight: 300)
 
             HStack {
-                Button("Select All") {
+                Button(localization.text(.selectAll)) {
                     selection = Set(filteredApps.map { $0.id })
                 }
-                Button("Clear") {
+                Button(localization.text(.clear)) {
                     selection.removeAll()
                 }
                 Spacer()
-                Button("Cancel") {
+                Button(localization.text(.cancel)) {
                     isPresented = false
                 }
-                Button("Remove") {
+                Button(localization.text(.remove)) {
                     let selectedInfos = allAppsInLaunchpad.filter { selection.contains($0.id) }
                     appStore.removeSelectedApps(fromAppInfos: selectedInfos)
                     isPresented = false
