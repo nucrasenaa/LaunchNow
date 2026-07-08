@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 import Foundation
 
 struct AppUpdateInfo {
@@ -136,6 +137,9 @@ final class AppUpdateManager {
 
         await MainActor.run {
             NSApp.terminate(nil)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                exit(0)
+            }
         }
         return destinationAppURL
     }
@@ -196,7 +200,7 @@ final class AppUpdateManager {
         processID: Int32
     ) -> String {
         let privilegedInstallCommand = """
-        /bin/rm -rf \(shellQuoted(destinationAppPath)) && /usr/bin/ditto \(shellQuoted(sourceAppPath)) \(shellQuoted(destinationAppPath)); status=$?; /usr/bin/xattr -dr com.apple.quarantine \(shellQuoted(destinationAppPath)) 2>/dev/null || true; exit $status
+        /bin/rm -rf \(shellQuoted(destinationAppPath)) && /usr/bin/ditto \(shellQuoted(sourceAppPath)) \(shellQuoted(destinationAppPath)); install_status=$?; /usr/bin/xattr -dr com.apple.quarantine \(shellQuoted(destinationAppPath)) 2>/dev/null || true; exit $install_status
         """
 
         return """
@@ -227,9 +231,9 @@ final class AppUpdateManager {
         install_without_prompt() {
           /bin/rm -rf "$DESTINATION_APP" &&
           /usr/bin/ditto "$SOURCE_APP" "$DESTINATION_APP"
-          local status=$?
+          local install_status=$?
           /usr/bin/xattr -dr com.apple.quarantine "$DESTINATION_APP" 2>/dev/null || true
-          return $status
+          return $install_status
         }
 
         if install_without_prompt; then
