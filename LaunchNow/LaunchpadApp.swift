@@ -26,6 +26,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let minimumContentSize = NSSize(width: 800, height: 600)
     private var lastShowAt: Date?
     private var cancellables = Set<AnyCancellable>()
+    private var isPresentingSystemPanel = false
+    private var levelBeforeSystemPanel: NSWindow.Level?
     
     let appStore = AppStore()
     var modelContainer: ModelContainer?
@@ -101,6 +103,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     
     func showWindow() {
+        guard !isPresentingSystemPanel else { return }
         guard let window = window else { return }
         let screen = getCurrentActiveScreen() ?? NSScreen.main!
         let rect = appStore.isFullscreenMode ? screen.frame : calculateContentRect(for: screen)
@@ -129,10 +132,26 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         guard let window = window else { return }
         let screen = getCurrentActiveScreen() ?? NSScreen.main!
         window.setFrame(isFullscreen ? screen.frame : calculateContentRect(for: screen), display: true)
-        window.level = isFullscreen ? .screenSaver : .floating
+        if !isPresentingSystemPanel {
+            window.level = isFullscreen ? .screenSaver : .floating
+        }
         window.hasShadow = !isFullscreen
         window.contentAspectRatio = isFullscreen ? NSSize(width: 0, height: 0) : NSSize(width: 4, height: 3)
         applyCornerRadius()
+    }
+
+    func beginSystemPanelPresentation() {
+        guard let window, !isPresentingSystemPanel else { return }
+        isPresentingSystemPanel = true
+        levelBeforeSystemPanel = window.level
+        window.level = .normal
+    }
+
+    func endSystemPanelPresentation() {
+        guard let window, isPresentingSystemPanel else { return }
+        window.level = levelBeforeSystemPanel ?? (appStore.isFullscreenMode ? .screenSaver : .floating)
+        levelBeforeSystemPanel = nil
+        isPresentingSystemPanel = false
     }
     
     private func applyCornerRadius() {

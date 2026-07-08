@@ -6,14 +6,12 @@ enum AppPanelPresenter {
         NSApp.activate(ignoringOtherApps: true)
 
         let previousLevel = panel.level
-        if let appWindow = AppDelegate.shared?.mainWindow {
-            panel.level = NSWindow.Level(rawValue: appWindow.level.rawValue + 1)
-        } else {
-            panel.level = .modalPanel
-        }
+        AppDelegate.shared?.beginSystemPanelPresentation()
+        panel.level = .modalPanel
 
         defer {
             panel.level = previousLevel
+            AppDelegate.shared?.endSystemPanelPresentation()
         }
 
         panel.orderFrontRegardless()
