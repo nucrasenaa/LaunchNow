@@ -1119,7 +1119,7 @@ struct RemoveAppsSheet: View { // unused by new UI, kept to avoid breaking refer
             .padding(.horizontal)
             .padding(.bottom, 10)
         }
-        .onChange(of: includeFolderApps) { _ in
+        .onChange(of: includeFolderApps) { _, _ in
             selection.removeAll()
         }
         .onReceive(appStore.$apps) { _ in

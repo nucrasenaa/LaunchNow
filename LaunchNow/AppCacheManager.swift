@@ -8,6 +8,7 @@ final class AppCacheManager: ObservableObject {
     
     // MARK: - 缓存存储
     private var iconCache: [String: NSImage] = [:]
+    private var folderIconCache: [String: NSImage] = [:]
     private var appInfoCache: [String: AppInfo] = [:]
     private var gridLayoutCache: [String: Any] = [:]
     private let cacheLock = NSLock()
@@ -90,16 +91,39 @@ final class AppCacheManager: ObservableObject {
             return nil
         }
     }
+
+    func getCachedFolderIcon(for folder: FolderInfo, side: CGFloat) -> NSImage {
+        let key = cacheKeyGenerator.generateFolderIconKey(for: folder, side: side)
+
+        cacheLock.lock()
+        if let icon = folderIconCache[key] {
+            cacheLock.unlock()
+            return icon
+        }
+        cacheLock.unlock()
+
+        let icon = folder.icon(of: side)
+
+        cacheLock.lock()
+        folderIconCache[key] = icon
+        cacheLock.unlock()
+
+        return icon
+    }
     
     /// 获取缓存的应用信息
     func getCachedAppInfo(for appPath: String) -> AppInfo? {
         let key = cacheKeyGenerator.generateAppInfoKey(for: appPath)
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
         return appInfoCache[key]
     }
     
     /// 获取缓存的网格布局数据
     func getCachedGridLayout(for layoutKey: String) -> Any? {
         let key = cacheKeyGenerator.generateGridLayoutKey(for: layoutKey)
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
         return gridLayoutCache[key]
     }
     
@@ -151,6 +175,7 @@ final class AppCacheManager: ObservableObject {
     func clearAllCaches() {
         cacheLock.lock()
         iconCache.removeAll()
+        folderIconCache.removeAll()
         appInfoCache.removeAll()
         gridLayoutCache.removeAll()
         iconCacheOrder.removeAll()
@@ -281,10 +306,11 @@ final class AppCacheManager: ObservableObject {
     private func calculateCacheSize() {
         cacheLock.lock()
         let iconSize = iconCache.count
+        let folderIconSize = folderIconCache.count
         let appInfoSize = appInfoCache.count
         let gridLayoutSize = gridLayoutCache.count
         cacheLock.unlock()
-        cacheSize = iconSize + appInfoSize + gridLayoutSize
+        cacheSize = iconSize + folderIconSize + appInfoSize + gridLayoutSize
     }
 
     
@@ -299,6 +325,12 @@ final class AppCacheManager: ObservableObject {
 private struct CacheKeyGenerator {
     func generateIconKey(for appPath: String) -> String {
         return "icon_\(appPath.hashValue)"
+    }
+
+    func generateFolderIconKey(for folder: FolderInfo, side: CGFloat) -> String {
+        let roundedSide = Int((max(16, side) * 2).rounded())
+        let appSignature = folder.apps.prefix(4).map { $0.url.path }.joined(separator: "|")
+        return "folder_\(folder.id)_\(folder.name)_\(roundedSide)_\(appSignature)".hashValue.description
     }
     
     func generateAppInfoKey(for appPath: String) -> String {
@@ -333,10 +365,16 @@ private struct PageInfo {
 
 extension AppCacheManager {
     var cacheStatistics: CacheStatistics {
+        cacheLock.lock()
+        let iconCacheSize = iconCache.count
+        let appInfoCacheSize = appInfoCache.count
+        let gridLayoutCacheSize = gridLayoutCache.count
+        cacheLock.unlock()
+
         return CacheStatistics(
-            iconCacheSize: iconCache.count,
-            appInfoCacheSize: appInfoCache.count,
-            gridLayoutCacheSize: gridLayoutCache.count,
+            iconCacheSize: iconCacheSize,
+            appInfoCacheSize: appInfoCacheSize,
+            gridLayoutCacheSize: gridLayoutCacheSize,
             totalCacheSize: cacheSize,
             isCacheValid: isCacheValid,
             lastUpdate: lastCacheUpdate

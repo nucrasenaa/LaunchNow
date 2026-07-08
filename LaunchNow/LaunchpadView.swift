@@ -110,14 +110,7 @@ struct LaunchpadView: View {
                 }
                 for app in matchingApps {
                     if !searchedApps.contains(app.url.path) {
-                        // 确保应用对象有效且图标可用
-                        let icon = app.icon.size.width > 0 ? app.icon : NSWorkspace.shared.icon(forFile: app.url.path)
-                        let validApp = AppInfo(
-                            name: app.name,
-                            icon: icon,
-                            url: app.url
-                        )
-                        result.append(.app(validApp))
+                        result.append(.app(app))
                         searchedApps.insert(app.url.path)
                     }
                 }
@@ -254,8 +247,10 @@ struct LaunchpadView: View {
                     let iconSize: CGFloat = min(columnWidth, appHeight) * 0.8
 
                     let effectivePageWidth = geo.size.width + config.pageSpacing
+                    let visibleItems = currentItems
+                    let visiblePages = makePages(from: visibleItems)
 
-                    if filteredItems.isEmpty && !appStore.searchText.isEmpty {
+                    if visibleItems.isEmpty && !appStore.searchText.isEmpty {
                         VStack(spacing: 20) {
                             Image(systemName: "magnifyingglass")
                                 .font(.largeTitle)
@@ -270,7 +265,7 @@ struct LaunchpadView: View {
                         ZStack(alignment: .topLeading) {
                             // 内容
                             HStack(spacing: config.pageSpacing) {
-                                ForEach(pages.indices, id: \.self) { index in
+                                ForEach(visiblePages.indices, id: \.self) { index in
                                     VStack(alignment: .leading, spacing: 0) {
                                         // 在网格上方添加动态padding
                                         if config.isFullscreen {
@@ -278,7 +273,7 @@ struct LaunchpadView: View {
                                                 .frame(height: actualTopPadding)
                                         }
                                         LazyVGrid(columns: config.gridItems, spacing: config.rowSpacing) {
-                                            ForEach(Array(pages[index].enumerated()), id: \.element.id) { (localOffset, item) in
+                                            ForEach(Array(visiblePages[index].enumerated()), id: \.element.id) { (localOffset, item) in
                                                 let globalIndex = index * config.itemsPerPage + localOffset
                                                 itemDraggable(
                                                     item: item,
@@ -294,8 +289,6 @@ struct LaunchpadView: View {
                                             }
                                         }
                                         .animation(LNAnimations.gridUpdate, value: pendingDropIndex)
-                                        .animation(LNAnimations.gridUpdate, value: appStore.gridRefreshTrigger)
-                                        .id(appStore.gridRefreshTrigger) // บังคับรีเฟรช layout 当行/列变更或显式刷新
                                         .frame(maxHeight: .infinity, alignment: .top)
                                     }
                                     .frame(width: geo.size.width, height: geo.size.height)
@@ -364,9 +357,10 @@ struct LaunchpadView: View {
                 }
                 
                 // Merged PageIndicator - add tap to jump to page
-                if pages.count > 1 {
+                let visiblePageCount = makePages(from: currentItems).count
+                if visiblePageCount > 1 {
                     HStack(spacing: 8) {
-                        ForEach(0..<pages.count, id: \.self) { index in
+                        ForEach(0..<visiblePageCount, id: \.self) { index in
                             Circle()
                                 .fill(appStore.currentPage == index ? Color.gray : Color.gray.opacity(0.3))
                                 .frame(width: 8, height: 8)
@@ -649,7 +643,7 @@ struct LaunchpadView: View {
     }
 
     private func finalizeHandoffDrag() {
-        guard let dragging = draggingItem else { return }
+        guard draggingItem != nil else { return }
         defer {
             if let monitor = handoffEventMonitor { NSEvent.removeMonitor(monitor); handoffEventMonitor = nil }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
@@ -1670,10 +1664,8 @@ extension LaunchpadView {
             }
         } else {
             // 兜底逻辑：如果没有有效的目标索引，将应用放置到当前页的末尾
-            if let draggingIndex = filteredItems.firstIndex(of: dragging) {
-                let currentPageStart = appStore.currentPage * config.itemsPerPage
-                let currentPageEnd = min(currentPageStart + config.itemsPerPage, appStore.items.count)
-                let targetIndex = currentPageEnd
+            if filteredItems.contains(dragging) {
+                let targetIndex = min((appStore.currentPage + 1) * config.itemsPerPage, appStore.items.count)
                 
                 // 使用级联插入确保应用能正确放置
                 appStore.moveItemAcrossPagesWithCascade(item: dragging, to: targetIndex)

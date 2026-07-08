@@ -8,7 +8,6 @@ struct FolderView: View {
     var preferredIconSize: CGFloat? = nil
     @State private var folderName: String = ""
     @State private var isEditingName = false
-    @State private var forceRefreshTrigger: UUID = UUID()
     @FocusState private var isTextFieldFocused: Bool
     @Namespace private var reorderNamespaceFolder
     // 键盘导航
@@ -79,34 +78,26 @@ struct FolderView: View {
                 isKeyboardNavigationActive = false
             }
         }
-        .onChange(of: isTextFieldFocused) { focused in
+        .onChange(of: isTextFieldFocused) { _, focused in
             if !focused && isEditingName {
                 finishEditing()
             }
         }
         .onChange(of: folder.apps) {
             clampSelection()
-            // 当应用列表变化时，强制刷新视图
-            forceRefreshTrigger = UUID()
         }
         .onChange(of: folder.name) {
             // 监听文件夹名称变化，确保界面立即更新
             if !isEditingName {
                 folderName = folder.name
-                // 强制刷新视图
-                forceRefreshTrigger = UUID()
             }
         }
         .onChange(of: appStore.folderUpdateTrigger) {
             // 强制刷新文件夹视图，确保图标和名称显示最新状态
-            forceRefreshTrigger = UUID()
-            // 触发视图重新渲染
             folderName = folder.name
         }
         .onChange(of: appStore.gridRefreshTrigger) {
             // 强制刷新网格视图，确保应用图标和布局显示最新状态
-            forceRefreshTrigger = UUID()
-            // 触发视图重新渲染
             folderName = folder.name
         }
         .onDisappear {
@@ -157,7 +148,6 @@ struct FolderView: View {
                         .onTapGesture {
                             // 单击时不做任何操作，避免意外触发
                         }
-                        .id(forceRefreshTrigger) // 使用forceRefreshTrigger强制刷新
                 }
             }
             Spacer()
@@ -201,7 +191,6 @@ struct FolderView: View {
                 
                 .animation(LNAnimations.gridUpdate, value: pendingDropIndex)
                 .animation(LNAnimations.gridUpdate, value: folder.apps)
-                .id(forceRefreshTrigger) // 使用forceRefreshTrigger强制刷新应用网格
                 .padding(EdgeInsets(top: gridPadding, leading: gridPadding, bottom: gridPadding, trailing: gridPadding))
                 .background(
                     GeometryReader { proxy in
@@ -215,7 +204,7 @@ struct FolderView: View {
             .scrollIndicators(.hidden)
             .disabled(isEditingName) // 编辑状态下禁用滚动
             .onAppear { columnsCount = desiredColumns }
-            .onChange(of: geo.size) { _ in columnsCount = desiredColumns }
+            .onChange(of: geo.size) { _, _ in columnsCount = desiredColumns }
 
             // 拖拽预览层
             if let draggingApp {
