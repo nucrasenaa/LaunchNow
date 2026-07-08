@@ -132,6 +132,10 @@ struct LaunchpadView: View {
     private var currentItems: [LaunchpadItem] {
         draggingItem != nil ? visualItems : filteredItems
     }
+
+    private var gridTopOffset: CGFloat {
+        config.isFullscreen ? currentContainerSize.height * config.topPadding : 0
+    }
     
     private var visualItems: [LaunchpadItem] {
         guard let dragging = draggingItem, let pending = pendingDropIndex else { return filteredItems }
@@ -1043,7 +1047,8 @@ extension LaunchpadView {
                                       columnSpacing: config.columnSpacing,
                                       rowSpacing: config.rowSpacing,
                                       pageSpacing: config.pageSpacing,
-                                      currentPage: appStore.currentPage)
+                                      currentPage: appStore.currentPage,
+                                      scrollOffsetY: -gridTopOffset)
     }
 
     private func cellCenter(for globalIndex: Int,
@@ -1052,7 +1057,7 @@ extension LaunchpadView {
                             columnWidth: CGFloat,
                             appHeight: CGFloat) -> CGPoint {
         // 性能优化：使用缓存避免重复计算
-        let cacheKey = "center_\(globalIndex)_\(pageIndex)_\(containerSize.width)_\(containerSize.height)_\(columnWidth)_\(appHeight)"
+        let cacheKey = "center_\(globalIndex)_\(pageIndex)_\(containerSize.width)_\(containerSize.height)_\(columnWidth)_\(appHeight)_\(gridTopOffset)_\(currentIconSize)"
         
         // 检查缓存是否有效
         let now = Date()
@@ -1062,7 +1067,7 @@ extension LaunchpadView {
         }
         
         let origin = cellOrigin(for: globalIndex, in: containerSize, pageIndex: pageIndex, columnWidth: columnWidth, appHeight: appHeight)
-        let center = CGPoint(x: origin.x + columnWidth / 2, y: origin.y + appHeight / 2)
+        let center = CGPoint(x: origin.x + columnWidth / 2, y: origin.y + iconCenterYOffset(appHeight: appHeight, iconSize: currentIconSize))
         
         // 异步更新缓存，避免在视图更新期间修改状态
         DispatchQueue.main.async {
@@ -1092,6 +1097,7 @@ extension LaunchpadView {
                                                       pageSpacing: config.pageSpacing,
                                                       currentPage: appStore.currentPage,
                                                       itemsPerPage: config.itemsPerPage,
+                                                      scrollOffsetY: -gridTopOffset,
                                                       pageItems: pageItems) else { return nil }
         
         let startIndexInCurrentItems = pages.prefix(pageIndex).reduce(0) { $0 + $1.count }
@@ -1139,6 +1145,12 @@ extension LaunchpadView {
         }
         
         return centerAreaRect.contains(point)
+    }
+
+    private func iconCenterYOffset(appHeight: CGFloat, iconSize: CGFloat) -> CGFloat {
+        let iconAndLabelHeight = iconSize + 8 + 34
+        let topPadding = max(0, (appHeight - iconAndLabelHeight) / 2) + 8
+        return topPadding + iconSize / 2
     }
 }
 
@@ -1408,7 +1420,7 @@ struct GridConfig {
     
     // เพิ่ม: ดีเลย์ก่อนสลับตำแหน่ง เพื่อให้สร้างโฟลเดอร์ได้ง่ายขึ้น
     let reorderDelayBeforeSwap: TimeInterval = 0.1
-    let folderCreationHitScale: CGFloat = 0.85
+    let folderCreationHitScale: CGFloat = 1.25
     
     struct PageNavigation {
         let edgeFlipMargin: CGFloat = 15
@@ -1820,17 +1832,15 @@ extension LaunchpadView {
                                   appHeight: CGFloat,
                                   iconSize: CGFloat) -> LaunchpadItem? {
         guard case .app(let draggedApp) = dragging,
-              let hoveringIndex = indexAt(point: point,
-                                          in: containerSize,
-                                          pageIndex: appStore.currentPage,
-                                          columnWidth: columnWidth,
-                                          appHeight: appHeight),
-              currentItems.indices.contains(hoveringIndex),
-              pageOf(index: hoveringIndex) == appStore.currentPage else {
+              let hoveringIndex = baseIndexAt(point: point,
+                                              in: containerSize,
+                                              pageIndex: appStore.currentPage,
+                                              columnWidth: columnWidth,
+                                              appHeight: appHeight) else {
             return nil
         }
 
-        let hoveringItem = currentItems[hoveringIndex]
+        let hoveringItem = filteredItems[hoveringIndex]
         switch hoveringItem {
         case .app(let targetApp) where targetApp != draggedApp:
             break
@@ -1840,13 +1850,67 @@ extension LaunchpadView {
             return nil
         }
 
-        return isPointInCenterArea(point: point,
-                                   targetIndex: hoveringIndex,
-                                   containerSize: containerSize,
-                                   pageIndex: appStore.currentPage,
-                                   columnWidth: columnWidth,
-                                   appHeight: appHeight,
-                                   iconSize: iconSize) ? hoveringItem : nil
+        let iconCenter = baseIconCenter(for: hoveringIndex,
+                                        in: containerSize,
+                                        pageIndex: appStore.currentPage,
+                                        columnWidth: columnWidth,
+                                        appHeight: appHeight,
+                                        iconSize: iconSize)
+        let hitSize = iconSize * config.folderCreationHitScale
+        let hitRect = CGRect(x: iconCenter.x - hitSize / 2,
+                             y: iconCenter.y - hitSize / 2,
+                             width: hitSize,
+                             height: hitSize)
+        return hitRect.contains(point) ? hoveringItem : nil
+    }
+
+    private func baseIndexAt(point: CGPoint,
+                             in containerSize: CGSize,
+                             pageIndex: Int,
+                             columnWidth: CGFloat,
+                             appHeight: CGFloat) -> Int? {
+        let basePages = makePages(from: filteredItems)
+        guard basePages.indices.contains(pageIndex),
+              let offsetInPage = GeometryUtils.indexAt(point: point,
+                                                       containerSize: containerSize,
+                                                       pageIndex: pageIndex,
+                                                       columnWidth: columnWidth,
+                                                       appHeight: appHeight,
+                                                       columns: config.columns,
+                                                       columnSpacing: config.columnSpacing,
+                                                       rowSpacing: config.rowSpacing,
+                                                       pageSpacing: config.pageSpacing,
+                                                       currentPage: appStore.currentPage,
+                                                       itemsPerPage: config.itemsPerPage,
+                                                       scrollOffsetY: -gridTopOffset,
+                                                       pageItems: basePages[pageIndex]) else {
+            return nil
+        }
+
+        let globalIndex = pageIndex * config.itemsPerPage + offsetInPage
+        return filteredItems.indices.contains(globalIndex) ? globalIndex : nil
+    }
+
+    private func baseIconCenter(for globalIndex: Int,
+                                in containerSize: CGSize,
+                                pageIndex: Int,
+                                columnWidth: CGFloat,
+                                appHeight: CGFloat,
+                                iconSize: CGFloat) -> CGPoint {
+        let offsetInPage = globalIndex - pageIndex * config.itemsPerPage
+        let origin = GeometryUtils.cellOrigin(for: offsetInPage,
+                                              containerSize: containerSize,
+                                              pageIndex: pageIndex,
+                                              columnWidth: columnWidth,
+                                              appHeight: appHeight,
+                                              columns: config.columns,
+                                              columnSpacing: config.columnSpacing,
+                                              rowSpacing: config.rowSpacing,
+                                              pageSpacing: config.pageSpacing,
+                                              currentPage: appStore.currentPage,
+                                              scrollOffsetY: -gridTopOffset)
+        return CGPoint(x: origin.x + columnWidth / 2,
+                       y: origin.y + iconCenterYOffset(appHeight: appHeight, iconSize: iconSize))
     }
     
     private func handleAppHover(
