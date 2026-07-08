@@ -134,7 +134,7 @@ final class AppCacheManager: ObservableObject {
             
             for path in appPaths {
                 if self.getCachedIcon(for: path) == nil {
-                    let icon = NSWorkspace.shared.icon(forFile: path)
+                    let icon = CustomAppIconManager.shared.icon(forAppURL: URL(fileURLWithPath: path))
                     let key = self.cacheKeyGenerator.generateIconKey(for: path)
                     self.cacheLock.lock()
                     self.iconCache[key] = icon

@@ -968,6 +968,71 @@ final class AppStore: ObservableObject {
     private func appInfo(from url: URL) -> AppInfo {
         return AppInfo.from(url: url)
     }
+
+    // MARK: - Custom App Icons
+    func presentChangeIconPanel(for app: AppInfo) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.image]
+        panel.prompt = LocalizationManager.shared.text(.choose)
+        panel.message = LocalizationManager.shared.text(.chooseCustomIcon)
+        if panel.runModal() == .OK, let iconURL = panel.url {
+            do {
+                try CustomAppIconManager.shared.setCustomIcon(from: iconURL, forAppPath: app.url.path)
+                refreshAppInfo(forAppPath: app.url.path)
+            } catch {
+                NSSound.beep()
+            }
+        }
+    }
+
+    func resetCustomIcon(for app: AppInfo) {
+        CustomAppIconManager.shared.resetCustomIcon(forAppPath: app.url.path)
+        refreshAppInfo(forAppPath: app.url.path)
+    }
+
+    func hasCustomIcon(for app: AppInfo) -> Bool {
+        CustomAppIconManager.shared.hasCustomIcon(forAppPath: app.url.path)
+    }
+
+    private func refreshAppInfo(forAppPath appPath: String) {
+        let url = URL(fileURLWithPath: appPath)
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        let refreshed = appInfo(from: url)
+
+        replaceAppInfo(refreshed, in: &availableApps)
+        replaceAppInfo(refreshed, in: &apps)
+
+        for folderIndex in folders.indices {
+            replaceAppInfo(refreshed, in: &folders[folderIndex].apps)
+        }
+
+        for itemIndex in items.indices {
+            switch items[itemIndex] {
+            case .app(let app) where app.url.path == appPath:
+                items[itemIndex] = .app(refreshed)
+            case .folder(let folder):
+                if let updatedFolder = folders.first(where: { $0.id == folder.id }) {
+                    items[itemIndex] = .folder(updatedFolder)
+                }
+            case .app, .empty:
+                break
+            }
+        }
+
+        triggerFolderUpdate()
+        triggerGridRefresh()
+        refreshCacheAfterFolderOperation()
+        saveAllOrder()
+    }
+
+    private func replaceAppInfo(_ app: AppInfo, in list: inout [AppInfo]) {
+        for index in list.indices where list[index].url.path == app.url.path {
+            list[index] = app
+        }
+    }
     
     // MARK: - 文件夹管理
     func createFolder(with apps: [AppInfo], name: String = LocalizationManager.shared.text(.untitledFolder)) -> FolderInfo {

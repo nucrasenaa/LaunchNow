@@ -20,7 +20,7 @@ struct AppInfo: Identifiable, Equatable, Hashable {
     // MARK: - 创建 AppInfo
     static func from(url: URL) -> AppInfo {
         let name = localizedAppName(for: url)
-        let icon = NSWorkspace.shared.icon(forFile: url.path)
+        let icon = CustomAppIconManager.shared.icon(forAppURL: url)
         return AppInfo(name: name, icon: icon, url: url)
     }
 

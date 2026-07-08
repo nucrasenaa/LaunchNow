@@ -427,6 +427,22 @@ struct SettingsView: View {
 
                         Spacer()
 
+                        Button {
+                            appStore.presentChangeIconPanel(for: app)
+                        } label: {
+                            Label(localization.text(.changeIcon), systemImage: "photo")
+                        }
+                        .buttonStyle(.bordered)
+
+                        if appStore.hasCustomIcon(for: app) {
+                            Button {
+                                appStore.resetCustomIcon(for: app)
+                            } label: {
+                                Label(localization.text(.resetIcon), systemImage: "arrow.counterclockwise")
+                            }
+                            .buttonStyle(.bordered)
+                        }
+
                         Button(role: .destructive) {
                             appStore.removeSelectedApps(fromAppInfos: [app])
                         } label: {
