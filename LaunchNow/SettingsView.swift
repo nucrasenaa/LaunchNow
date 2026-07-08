@@ -432,6 +432,22 @@ struct SettingsView: View {
                         Spacer()
 
                         Button {
+                            appStore.presentRenameAppPanel(for: app)
+                        } label: {
+                            Label(localization.text(.renameApp), systemImage: "pencil")
+                        }
+                        .buttonStyle(.bordered)
+
+                        if appStore.hasCustomDisplayName(for: app) {
+                            Button {
+                                appStore.resetAppDisplayName(for: app)
+                            } label: {
+                                Label(localization.text(.resetName), systemImage: "text.badge.xmark")
+                            }
+                            .buttonStyle(.bordered)
+                        }
+
+                        Button {
                             appStore.presentChangeIconPanel(for: app)
                         } label: {
                             Label(localization.text(.changeIcon), systemImage: "photo")

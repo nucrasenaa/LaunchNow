@@ -19,7 +19,8 @@ struct AppInfo: Identifiable, Equatable, Hashable {
 
     // MARK: - 创建 AppInfo
     static func from(url: URL) -> AppInfo {
-        let name = localizedAppName(for: url)
+        let bundleName = localizedAppName(for: url)
+        let name = CustomAppNameManager.shared.displayName(forAppURL: url, fallbackName: bundleName)
         let icon = CustomAppIconManager.shared.icon(forAppURL: url)
         return AppInfo(name: name, icon: icon, url: url)
     }

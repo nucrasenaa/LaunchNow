@@ -442,6 +442,7 @@ final class AppStore: ObservableObject {
         folders.removeAll()
         items.removeAll()
         apps.removeAll()
+        CustomAppNameManager.shared.resetAll()
         clearAllPersistedData()
         cacheManager.clearAllCaches()
         triggerFolderUpdate()
@@ -995,6 +996,44 @@ final class AppStore: ObservableObject {
 
     func hasCustomIcon(for app: AppInfo) -> Bool {
         CustomAppIconManager.shared.hasCustomIcon(forAppPath: app.url.path)
+    }
+
+    // MARK: - Custom App Names
+    func presentRenameAppPanel(for app: AppInfo) {
+        let alert = NSAlert()
+        alert.messageText = LocalizationManager.shared.text(.renameApp)
+        alert.informativeText = LocalizationManager.shared.text(.renameAppDescription)
+        alert.addButton(withTitle: LocalizationManager.shared.text(.save))
+        alert.addButton(withTitle: LocalizationManager.shared.text(.cancel))
+
+        let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
+        textField.stringValue = app.name
+        alert.accessoryView = textField
+        alert.window.initialFirstResponder = textField
+
+        if alert.runModal() == .alertFirstButtonReturn {
+            renameAppDisplayName(app, newName: textField.stringValue)
+        }
+    }
+
+    func renameAppDisplayName(_ app: AppInfo, newName: String) {
+        let trimmedName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else {
+            NSSound.beep()
+            return
+        }
+
+        CustomAppNameManager.shared.setCustomName(trimmedName, forAppPath: app.url.path)
+        refreshAppInfo(forAppPath: app.url.path)
+    }
+
+    func resetAppDisplayName(for app: AppInfo) {
+        CustomAppNameManager.shared.resetCustomName(forAppPath: app.url.path)
+        refreshAppInfo(forAppPath: app.url.path)
+    }
+
+    func hasCustomDisplayName(for app: AppInfo) -> Bool {
+        CustomAppNameManager.shared.hasCustomName(forAppPath: app.url.path)
     }
 
     private func refreshAppInfo(forAppPath appPath: String) {
