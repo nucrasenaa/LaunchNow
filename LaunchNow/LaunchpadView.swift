@@ -110,14 +110,7 @@ struct LaunchpadView: View {
                 }
                 for app in matchingApps {
                     if !searchedApps.contains(app.url.path) {
-                        // 确保应用对象有效且图标可用
-                        let icon = app.icon.size.width > 0 ? app.icon : NSWorkspace.shared.icon(forFile: app.url.path)
-                        let validApp = AppInfo(
-                            name: app.name,
-                            icon: icon,
-                            url: app.url
-                        )
-                        result.append(.app(validApp))
+                        result.append(.app(app))
                         searchedApps.insert(app.url.path)
                     }
                 }
@@ -254,8 +247,10 @@ struct LaunchpadView: View {
                     let iconSize: CGFloat = min(columnWidth, appHeight) * 0.8
 
                     let effectivePageWidth = geo.size.width + config.pageSpacing
+                    let visibleItems = currentItems
+                    let visiblePages = makePages(from: visibleItems)
 
-                    if filteredItems.isEmpty && !appStore.searchText.isEmpty {
+                    if visibleItems.isEmpty && !appStore.searchText.isEmpty {
                         VStack(spacing: 20) {
                             Image(systemName: "magnifyingglass")
                                 .font(.largeTitle)
@@ -270,7 +265,7 @@ struct LaunchpadView: View {
                         ZStack(alignment: .topLeading) {
                             // 内容
                             HStack(spacing: config.pageSpacing) {
-                                ForEach(pages.indices, id: \.self) { index in
+                                ForEach(visiblePages.indices, id: \.self) { index in
                                     VStack(alignment: .leading, spacing: 0) {
                                         // 在网格上方添加动态padding
                                         if config.isFullscreen {
@@ -278,7 +273,7 @@ struct LaunchpadView: View {
                                                 .frame(height: actualTopPadding)
                                         }
                                         LazyVGrid(columns: config.gridItems, spacing: config.rowSpacing) {
-                                            ForEach(Array(pages[index].enumerated()), id: \.element.id) { (localOffset, item) in
+                                            ForEach(Array(visiblePages[index].enumerated()), id: \.element.id) { (localOffset, item) in
                                                 let globalIndex = index * config.itemsPerPage + localOffset
                                                 itemDraggable(
                                                     item: item,
@@ -294,8 +289,6 @@ struct LaunchpadView: View {
                                             }
                                         }
                                         .animation(LNAnimations.gridUpdate, value: pendingDropIndex)
-                                        .animation(LNAnimations.gridUpdate, value: appStore.gridRefreshTrigger)
-                                        .id(appStore.gridRefreshTrigger) // บังคับรีเฟรช layout 当行/列变更或显式刷新
                                         .frame(maxHeight: .infinity, alignment: .top)
                                     }
                                     .frame(width: geo.size.width, height: geo.size.height)
@@ -364,9 +357,10 @@ struct LaunchpadView: View {
                 }
                 
                 // Merged PageIndicator - add tap to jump to page
-                if pages.count > 1 {
+                let visiblePageCount = makePages(from: currentItems).count
+                if visiblePageCount > 1 {
                     HStack(spacing: 8) {
-                        ForEach(0..<pages.count, id: \.self) { index in
+                        ForEach(0..<visiblePageCount, id: \.self) { index in
                             Circle()
                                 .fill(appStore.currentPage == index ? Color.gray : Color.gray.opacity(0.3))
                                 .frame(width: 8, height: 8)
@@ -649,7 +643,7 @@ struct LaunchpadView: View {
     }
 
     private func finalizeHandoffDrag() {
-        guard let dragging = draggingItem else { return }
+        guard draggingItem != nil else { return }
         defer {
             if let monitor = handoffEventMonitor { NSEvent.removeMonitor(monitor); handoffEventMonitor = nil }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
@@ -1009,14 +1003,7 @@ extension LaunchpadView {
                                 finalizeDragOperation(containerSize: containerSize, columnWidth: columnWidth, appHeight: appHeight, iconSize: iconSize)
 
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                    draggingItem = nil
-                                    pendingDropIndex = nil
-                                    clampSelection()
-                                    appStore.cleanupUnusedNewPage()
-                                    appStore.removeEmptyPages()
-                                    
-                                    // 确保拖拽操作完成后立即保存
-                                    appStore.saveAllOrder()
+                                    finishDragInteraction(saveOrder: true)
                                 }
                             }
                     )
@@ -1124,7 +1111,7 @@ extension LaunchpadView {
         let now = Date()
         if now.timeIntervalSince(Self.lastGeometryUpdate) < geometryCacheTimeout,
            let cached = Self.geometryCache[cacheKey] {
-            let centerAreaSize = iconSize * 1.6
+            let centerAreaSize = iconSize * config.folderCreationHitScale
             let centerAreaRect = CGRect(
                 x: cached.x - centerAreaSize / 2,
                 y: cached.y - centerAreaSize / 2,
@@ -1135,7 +1122,7 @@ extension LaunchpadView {
         }
         
         let targetCenter = cellCenter(for: targetIndex, in: containerSize, pageIndex: pageIndex, columnWidth: columnWidth, appHeight: appHeight)
-        let scale: CGFloat = 1.6
+        let scale = config.folderCreationHitScale
         let centerAreaSize = iconSize * scale
         let centerAreaRect = CGRect(
             x: targetCenter.x - centerAreaSize / 2,
@@ -1420,6 +1407,7 @@ struct GridConfig {
     
     // เพิ่ม: ดีเลย์ก่อนสลับตำแหน่ง เพื่อให้สร้างโฟลเดอร์ได้ง่ายขึ้น
     let reorderDelayBeforeSwap: TimeInterval = 0.1
+    let folderCreationHitScale: CGFloat = 0.85
     
     struct PageNavigation {
         let edgeFlipMargin: CGFloat = 15
@@ -1552,6 +1540,7 @@ extension LaunchpadView {
             isKeyboardNavigationActive = false
             appStore.isDragCreatingFolder = false
             appStore.folderCreationTarget = nil
+            dragPreviewScale = 1.2
             dragPreviewPosition = value.location
         }
         applyDragUpdate(at: value.location,
@@ -1620,6 +1609,7 @@ extension LaunchpadView {
             }
             appStore.isDragCreatingFolder = false
             appStore.folderCreationTarget = nil
+            finishDragInteraction(saveOrder: false)
             return
         }
         
@@ -1651,7 +1641,7 @@ extension LaunchpadView {
                 var newItems = appStore.items
                 var pageSlice = Array(newItems[pageStart..<pageEnd])
                 let localFrom = sourceIndexInItems - pageStart
-                let localTo = max(0, min(finalIndex - pageStart, pageSlice.count - 1))
+                let localTo = max(0, min(finalIndex - pageStart, pageSlice.count))
                 let moving = pageSlice.remove(at: localFrom)
                 pageSlice.insert(moving, at: localTo)
                 newItems.replaceSubrange(pageStart..<pageEnd, with: pageSlice)
@@ -1670,14 +1660,30 @@ extension LaunchpadView {
             }
         } else {
             // 兜底逻辑：如果没有有效的目标索引，将应用放置到当前页的末尾
-            if let draggingIndex = filteredItems.firstIndex(of: dragging) {
-                let currentPageStart = appStore.currentPage * config.itemsPerPage
-                let currentPageEnd = min(currentPageStart + config.itemsPerPage, appStore.items.count)
-                let targetIndex = currentPageEnd
+            if filteredItems.contains(dragging) {
+                let targetIndex = min((appStore.currentPage + 1) * config.itemsPerPage, appStore.items.count)
                 
                 // 使用级联插入确保应用能正确放置
                 appStore.moveItemAcrossPagesWithCascade(item: dragging, to: targetIndex)
             }
+        }
+    }
+
+    private func finishDragInteraction(saveOrder: Bool) {
+        cancelScheduledReorder()
+        draggingItem = nil
+        pendingDropIndex = nil
+        folderHoverCandidateIndex = nil
+        folderHoverBeganAt = nil
+        appStore.isDragCreatingFolder = false
+        appStore.folderCreationTarget = nil
+        pageFlipManager.isCooldown = false
+        isHandoffDragging = false
+        clampSelection()
+        appStore.cleanupUnusedNewPage()
+        appStore.removeEmptyPages()
+        if saveOrder {
+            appStore.saveAllOrder()
         }
     }
 
@@ -1741,7 +1747,14 @@ extension LaunchpadView {
 
         switch hoveringItem {
         case .app(let targetApp):
-            handleAppHover(dragging: dragging, targetApp: targetApp, hoveringIndex: hoveringIndex, isInCenterArea: isInCenterArea)
+            handleAppHover(
+                dragging: dragging,
+                targetApp: targetApp,
+                hoveringIndex: hoveringIndex,
+                isInCenterArea: isInCenterArea,
+                columnWidth: columnWidth,
+                appHeight: appHeight
+            )
         case .folder(_):
             handleFolderHover(dragging: dragging, hoveringIndex: hoveringIndex, isInCenterArea: isInCenterArea)
         case .empty:
@@ -1753,14 +1766,28 @@ extension LaunchpadView {
         }
     }
     
-    private func handleAppHover(dragging: LaunchpadItem, targetApp: AppInfo, hoveringIndex: Int, isInCenterArea: Bool) {
+    private func handleAppHover(
+        dragging: LaunchpadItem,
+        targetApp: AppInfo,
+        hoveringIndex: Int,
+        isInCenterArea: Bool,
+        columnWidth: CGFloat,
+        appHeight: CGFloat
+    ) {
         if dragging == .app(targetApp) {
             cancelScheduledReorder()
             appStore.isDragCreatingFolder = false
             appStore.folderCreationTarget = nil
             pendingDropIndex = hoveringIndex
         } else if case .app = dragging {
-            handleAppToAppHover(hoveringIndex: hoveringIndex, isInCenterArea: isInCenterArea, targetApp: targetApp)
+            handleAppToAppHover(
+                dragging: dragging,
+                hoveringIndex: hoveringIndex,
+                isInCenterArea: isInCenterArea,
+                targetApp: targetApp,
+                columnWidth: columnWidth,
+                appHeight: appHeight
+            )
         } else {
             cancelScheduledReorder()
             appStore.isDragCreatingFolder = false
@@ -1769,7 +1796,14 @@ extension LaunchpadView {
         }
     }
     
-    private func handleAppToAppHover(hoveringIndex: Int, isInCenterArea: Bool, targetApp: AppInfo) {
+    private func handleAppToAppHover(
+        dragging: LaunchpadItem,
+        hoveringIndex: Int,
+        isInCenterArea: Bool,
+        targetApp: AppInfo,
+        columnWidth: CGFloat,
+        appHeight: CGFloat
+    ) {
         let now = Date()
         let candidateChanged = folderHoverCandidateIndex != hoveringIndex || !isInCenterArea
         
@@ -1788,8 +1822,45 @@ extension LaunchpadView {
             // นอกโซนกลาง: ตั้งเวลา reorder (เลื่อน-สลับ) เพื่อไม่ให้หนีเร็วเกินไป
             appStore.isDragCreatingFolder = false
             appStore.folderCreationTarget = nil
-            scheduleReorder(for: hoveringIndex)
+            let insertionIndex = appInsertionIndex(
+                dragging: dragging,
+                targetApp: targetApp,
+                hoveringIndex: hoveringIndex,
+                columnWidth: columnWidth,
+                appHeight: appHeight
+            )
+            scheduleReorder(for: insertionIndex)
         }
+    }
+
+    private func appInsertionIndex(
+        dragging: LaunchpadItem,
+        targetApp: AppInfo,
+        hoveringIndex: Int,
+        columnWidth: CGFloat,
+        appHeight: CGFloat
+    ) -> Int {
+        guard let sourceIndex = filteredItems.firstIndex(of: dragging),
+              let targetIndex = filteredItems.firstIndex(of: .app(targetApp)) else {
+            return hoveringIndex
+        }
+
+        let targetCenter = cellCenter(
+            for: hoveringIndex,
+            in: currentContainerSize,
+            pageIndex: appStore.currentPage,
+            columnWidth: columnWidth,
+            appHeight: appHeight
+        )
+        let insertAfterTarget = dragPreviewPosition.x > targetCenter.x
+        let insertionIndex: Int
+        if insertAfterTarget {
+            insertionIndex = sourceIndex < targetIndex ? targetIndex : targetIndex + 1
+        } else {
+            insertionIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex
+        }
+
+        return max(0, min(insertionIndex, filteredItems.count - 1))
     }
     
     private func handleFolderHover(dragging: LaunchpadItem, hoveringIndex: Int, isInCenterArea: Bool) {

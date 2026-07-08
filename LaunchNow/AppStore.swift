@@ -790,19 +790,15 @@ final class AppStore: ObservableObject {
         )
         let callback: FSEventStreamCallback = { (streamRef, clientInfo, numEvents, eventPaths, eventFlags, eventIds) in
             guard let info = clientInfo else { return }
-            do {
-                let appStore = Unmanaged<AppStore>.fromOpaque(info).takeUnretainedValue()
-                guard numEvents > 0 else {
-                    appStore.handleFSEvents(paths: [], flagsPointer: eventFlags, count: 0)
-                    return
-                }
-                let cfArray = Unmanaged<CFArray>.fromOpaque(eventPaths).takeUnretainedValue()
-                let nsArray = cfArray as NSArray
-                guard let pathsArray = nsArray as? [String] else { return }
-                appStore.handleFSEvents(paths: pathsArray, flagsPointer: eventFlags, count: numEvents)
-            } catch {
-                // ignore
+            let appStore = Unmanaged<AppStore>.fromOpaque(info).takeUnretainedValue()
+            guard numEvents > 0 else {
+                appStore.handleFSEvents(paths: [], flagsPointer: eventFlags, count: 0)
+                return
             }
+            let cfArray = Unmanaged<CFArray>.fromOpaque(eventPaths).takeUnretainedValue()
+            let nsArray = cfArray as NSArray
+            guard let pathsArray = nsArray as? [String] else { return }
+            appStore.handleFSEvents(paths: pathsArray, flagsPointer: eventFlags, count: numEvents)
         }
         let flags = FSEventStreamCreateFlags(kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagNoDefer | kFSEventStreamCreateFlagUseCFTypes)
         let latency: CFTimeInterval = 0.0
@@ -1597,8 +1593,11 @@ final class AppStore: ObservableObject {
         if !cacheManager.isCacheValid {
             cacheManager.generateCache(from: availableApps, items: items)
         } else {
-            let appPaths = availableApps.map { $0.url.path }
-            cacheManager.preloadIcons(for: appPaths)
+            cacheManager.smartPreloadIcons(
+                for: items,
+                currentPage: currentPage,
+                itemsPerPage: itemsPerPage
+            )
         }
     }
     
@@ -1623,8 +1622,11 @@ final class AppStore: ObservableObject {
         if !cacheManager.isCacheValid {
             cacheManager.generateCache(from: availableApps, items: items)
         } else {
-            let changedAppPaths = availableApps.map { $0.url.path }
-            cacheManager.preloadIcons(for: changedAppPaths)
+            cacheManager.smartPreloadIcons(
+                for: items,
+                currentPage: currentPage,
+                itemsPerPage: itemsPerPage
+            )
         }
     }
     private func refreshCacheAfterFolderOperation() {

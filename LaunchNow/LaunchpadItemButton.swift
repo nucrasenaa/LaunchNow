@@ -14,7 +14,6 @@ struct LaunchpadItemButton: View {
     
     @State private var isHovered = false
     @State private var lastTapTime = Date.distantPast
-    @State private var forceRefreshTrigger: UUID = UUID()
     private let doubleTapThreshold: TimeInterval = 0.3
     
     private var effectiveScale: CGFloat {
@@ -59,7 +58,7 @@ struct LaunchpadItemButton: View {
                                 return NSWorkspace.shared.icon(forFile: app.url.path)
                             }
                         case .folder(let folder):
-                            return folder.icon(of: iconSize)
+                            return AppCacheManager.shared.getCachedFolderIcon(for: folder, side: iconSize)
                         case .empty:
                             return item.icon
                         }
@@ -85,7 +84,6 @@ struct LaunchpadItemButton: View {
                         .interpolation(.high)
                         .antialiased(true)
                         .frame(width: iconSize, height: iconSize)
-                        .id(item.id + "_" + forceRefreshTrigger.uuidString) // 使用组合ID强制刷新，确保文件夹图标能够正确更新
                 }
                 .scaleEffect(isSelected ? 1.2 : effectiveScale)
                 .animation(LNAnimations.springFast, value: isHovered || isSelected)
