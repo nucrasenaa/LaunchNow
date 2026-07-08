@@ -122,6 +122,15 @@ enum L10nKey: String {
     case exportImportDescription
     case versionFormat
     case aboutDescription
+    case checkForUpdates
+    case checkingForUpdates
+    case appUpToDate
+    case updateAvailableFormat
+    case updateCheckFailed
+    case downloadUpdate
+    case downloadingUpdate
+    case updateDownloadedFormat
+    case updateDownloadFailed
     case uninstall
     case uninstallDescription
     case uninstallTitle
@@ -256,6 +265,15 @@ final class LocalizationManager: ObservableObject {
             .exportImportDescription: "Export/Import includes your layout, folders and settings.",
             .versionFormat: "Version %@",
             .aboutDescription: "A lightweight Launchpad-like app launcher.",
+            .checkForUpdates: "Check for Updates",
+            .checkingForUpdates: "Checking for updates...",
+            .appUpToDate: "LaunchNow is up to date.",
+            .updateAvailableFormat: "Version %@ is available.",
+            .updateCheckFailed: "Could not check for updates.",
+            .downloadUpdate: "Download Update",
+            .downloadingUpdate: "Downloading update...",
+            .updateDownloadedFormat: "Downloaded %@ and opened the installer.",
+            .updateDownloadFailed: "Could not download the update.",
             .uninstall: "Uninstall",
             .uninstallDescription: "Quit the app and move it to the Trash. You can also remove app data.",
             .uninstallTitle: "Uninstall LaunchNow",
@@ -342,6 +360,15 @@ final class LocalizationManager: ObservableObject {
             .exportImportDescription: "การส่งออก/นำเข้าจะรวมเลย์เอาต์ โฟลเดอร์ และการตั้งค่า",
             .versionFormat: "เวอร์ชัน %@",
             .aboutDescription: "ตัวเปิดแอปน้ำหนักเบาที่ให้ความรู้สึกคล้าย Launchpad",
+            .checkForUpdates: "ตรวจหาอัปเดต",
+            .checkingForUpdates: "กำลังตรวจหาอัปเดต...",
+            .appUpToDate: "LaunchNow เป็นเวอร์ชันล่าสุดแล้ว",
+            .updateAvailableFormat: "มีเวอร์ชัน %@ ให้ใช้งาน",
+            .updateCheckFailed: "ไม่สามารถตรวจหาอัปเดตได้",
+            .downloadUpdate: "ดาวน์โหลดอัปเดต",
+            .downloadingUpdate: "กำลังดาวน์โหลดอัปเดต...",
+            .updateDownloadedFormat: "ดาวน์โหลด %@ แล้ว และเปิดตัวติดตั้งให้แล้ว",
+            .updateDownloadFailed: "ไม่สามารถดาวน์โหลดอัปเดตได้",
             .uninstall: "ถอนการติดตั้ง",
             .uninstallDescription: "ออกจากแอปและย้ายไปถังขยะ สามารถลบข้อมูลแอปเพิ่มเติมได้",
             .uninstallTitle: "ถอนการติดตั้ง LaunchNow",

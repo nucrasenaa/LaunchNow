@@ -64,6 +64,10 @@ struct SettingsView: View {
     @State private var isRemoveSheetPresented = false // kept for compatibility (not used in new UI)
     @State private var showUninstallSheet = false
     @State private var alsoRemoveData = true
+    @State private var isCheckingForUpdates = false
+    @State private var isDownloadingUpdate = false
+    @State private var availableUpdate: AppUpdateInfo?
+    @State private var updateStatusMessage: String?
 
     // UI state
     @State private var selected: SettingsSection = .general
@@ -590,6 +594,41 @@ struct SettingsView: View {
 
             Divider().padding(.vertical, 8)
 
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 12) {
+                    Button {
+                        checkForUpdates()
+                    } label: {
+                        Label(localization.text(.checkForUpdates), systemImage: "arrow.down.circle")
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isCheckingForUpdates)
+
+                    if let availableUpdate {
+                        Button {
+                            downloadUpdate(availableUpdate)
+                        } label: {
+                            Label(localization.text(.downloadUpdate), systemImage: "square.and.arrow.down")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(isDownloadingUpdate)
+                    }
+                }
+
+                if isCheckingForUpdates || isDownloadingUpdate {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+
+                if let updateStatusMessage {
+                    Text(updateStatusMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Divider().padding(.vertical, 8)
+
             // Uninstall is here (moved from Apps)
             HStack(spacing: 12) {
                 Button {
@@ -602,6 +641,46 @@ struct SettingsView: View {
 
                 Text(localization.text(.uninstallDescription))
                     .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func checkForUpdates() {
+        isCheckingForUpdates = true
+        updateStatusMessage = localization.text(.checkingForUpdates)
+        availableUpdate = nil
+        Task {
+            do {
+                let update = try await AppUpdateManager.shared.checkForUpdate()
+                await MainActor.run {
+                    availableUpdate = update
+                    updateStatusMessage = update.map { localization.text(.updateAvailableFormat, $0.version) } ?? localization.text(.appUpToDate)
+                    isCheckingForUpdates = false
+                }
+            } catch {
+                await MainActor.run {
+                    updateStatusMessage = localization.text(.updateCheckFailed)
+                    isCheckingForUpdates = false
+                }
+            }
+        }
+    }
+
+    private func downloadUpdate(_ update: AppUpdateInfo) {
+        isDownloadingUpdate = true
+        updateStatusMessage = localization.text(.downloadingUpdate)
+        Task {
+            do {
+                let destinationURL = try await AppUpdateManager.shared.downloadAndOpen(update)
+                await MainActor.run {
+                    updateStatusMessage = localization.text(.updateDownloadedFormat, destinationURL.lastPathComponent)
+                    isDownloadingUpdate = false
+                }
+            } catch {
+                await MainActor.run {
+                    updateStatusMessage = localization.text(.updateDownloadFailed)
+                    isDownloadingUpdate = false
+                }
             }
         }
     }
