@@ -553,6 +553,110 @@ struct LaunchpadView: View {
             NSWorkspace.shared.open(app.url)
         }
     }
+
+    private func contextMenu(for item: LaunchpadItem) -> AnyView? {
+        switch item {
+        case .app(let app):
+            return AnyView(appContextMenu(for: app))
+        case .folder(let folder):
+            return AnyView(folderContextMenu(for: folder))
+        case .empty:
+            return nil
+        }
+    }
+
+    @ViewBuilder
+    private func appContextMenu(for app: AppInfo) -> some View {
+        Button {
+            launchApp(app)
+        } label: {
+            Label(localization.text(.open), systemImage: "arrow.up.forward.app")
+        }
+
+        Button {
+            NSWorkspace.shared.activateFileViewerSelecting([app.url])
+        } label: {
+            Label(localization.text(.showInFinder), systemImage: "folder")
+        }
+
+        Divider()
+
+        Button {
+            appStore.presentRenameAppPanel(for: app)
+        } label: {
+            Label(localization.text(.renameApp), systemImage: "pencil")
+        }
+
+        Button {
+            appStore.presentChangeIconPanel(for: app)
+        } label: {
+            Label(localization.text(.changeIcon), systemImage: "photo")
+        }
+
+        if appStore.hasCustomIcon(for: app) {
+            Button {
+                appStore.resetCustomIcon(for: app)
+            } label: {
+                Label(localization.text(.resetIcon), systemImage: "arrow.counterclockwise")
+            }
+        }
+
+        Divider()
+
+        Button(role: .destructive) {
+            appStore.removeSelectedApps(fromAppInfos: [app])
+        } label: {
+            Label(localization.text(.remove), systemImage: "trash")
+        }
+    }
+
+    @ViewBuilder
+    private func folderContextMenu(for folder: FolderInfo) -> some View {
+        Button {
+            withAnimation(LNAnimations.springFast) {
+                appStore.openFolder = folder
+            }
+        } label: {
+            Label(localization.text(.open), systemImage: "folder")
+        }
+
+        Button {
+            NSWorkspace.shared.activateFileViewerSelecting(folder.apps.map(\.url))
+        } label: {
+            Label(localization.text(.showInFinder), systemImage: "folder")
+        }
+        .disabled(folder.apps.isEmpty)
+
+        Divider()
+
+        Button {
+            appStore.presentRenameFolderPanel(for: folder)
+        } label: {
+            Label(localization.text(.renameApp), systemImage: "pencil")
+        }
+
+        Button {
+            appStore.presentChangeFolderIconPanel(for: folder)
+        } label: {
+            Label(localization.text(.changeIcon), systemImage: "photo")
+        }
+
+        if appStore.hasCustomFolderIcon(for: folder) {
+            Button {
+                appStore.resetCustomFolderIcon(for: folder)
+            } label: {
+                Label(localization.text(.resetIcon), systemImage: "arrow.counterclockwise")
+            }
+        }
+
+        Divider()
+
+        Button(role: .destructive) {
+            appStore.removeFolder(folder)
+        } label: {
+            Label(localization.text(.remove), systemImage: "trash")
+        }
+    }
     
     private func handleItemTap(_ item: LaunchpadItem) {
         guard draggingItem == nil else { return }
@@ -982,7 +1086,8 @@ extension LaunchpadView {
                 isSelected: isSelected,
                 shouldAllowHover: shouldAllowHover,
                 externalScale: isCenterCreatingTarget ? 1.2 : nil,
-                onTap: { if draggingItem == nil { handleItemTap(item) } }
+                onTap: { if draggingItem == nil { handleItemTap(item) } },
+                contextMenuContent: contextMenu(for: item)
             )
             .frame(height: appHeight)
             .matchedGeometryEffect(id: item.id, in: reorderNamespace)

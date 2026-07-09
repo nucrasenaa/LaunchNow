@@ -1215,6 +1215,47 @@ final class AppStore: ObservableObject {
         rebuildItems()
         saveAllOrder()
     }
+
+    func presentRenameFolderPanel(for folder: FolderInfo) {
+        let alert = NSAlert()
+        alert.messageText = LocalizationManager.shared.text(.renameApp)
+        alert.informativeText = LocalizationManager.shared.text(.renameFolderDescription)
+        alert.addButton(withTitle: LocalizationManager.shared.text(.save))
+        alert.addButton(withTitle: LocalizationManager.shared.text(.cancel))
+
+        let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
+        textField.stringValue = folder.name
+        alert.accessoryView = textField
+        alert.window.initialFirstResponder = textField
+
+        if alert.runModal() == .alertFirstButtonReturn {
+            let newName = textField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !newName.isEmpty else {
+                NSSound.beep()
+                return
+            }
+            renameFolder(folder, newName: newName)
+        }
+    }
+
+    func removeFolder(_ folder: FolderInfo) {
+        folders.removeAll { $0.id == folder.id }
+        items = items.map { item in
+            if case .folder(let existingFolder) = item, existingFolder.id == folder.id {
+                return .empty(UUID().uuidString)
+            }
+            return item
+        }
+        if openFolder?.id == folder.id {
+            openFolder = nil
+        }
+        compactItemsWithinPages()
+        rebuildItems()
+        saveAllOrder()
+        triggerFolderUpdate()
+        triggerGridRefresh()
+        refreshCacheAfterFolderOperation()
+    }
     
     func resetLayout() {
         openFolder = nil

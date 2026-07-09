@@ -11,6 +11,7 @@ struct LaunchpadItemButton: View {
     var externalScale: CGFloat? = nil
     let onTap: () -> Void
     let onDoubleClick: (() -> Void)?
+    private let contextMenuContent: AnyView?
     
     @State private var isHovered = false
     @State private var lastTapTime = Date.distantPast
@@ -28,7 +29,8 @@ struct LaunchpadItemButton: View {
           shouldAllowHover: Bool = true,
           externalScale: CGFloat? = nil,
          onTap: @escaping () -> Void,
-         onDoubleClick: (() -> Void)? = nil) {
+         onDoubleClick: (() -> Void)? = nil,
+         contextMenuContent: AnyView? = nil) {
         self.item = item
         self.iconSize = iconSize
         self.labelWidth = labelWidth
@@ -37,10 +39,11 @@ struct LaunchpadItemButton: View {
         self.externalScale = externalScale
         self.onTap = onTap
         self.onDoubleClick = onDoubleClick
+        self.contextMenuContent = contextMenuContent
     }
 
     var body: some View {
-        Button(action: handleTap) {
+        let button = Button(action: handleTap) {
             VStack(spacing: 8) {
                 ZStack {
                     let renderedIcon: NSImage = {
@@ -100,6 +103,14 @@ struct LaunchpadItemButton: View {
         .buttonStyle(.plain)
         .padding(8)
         .onHover { isHovered = $0 }
+
+        if let contextMenuContent {
+            button.contextMenu {
+                contextMenuContent
+            }
+        } else {
+            button
+        }
     }
     
     private func handleTap() {

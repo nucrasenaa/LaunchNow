@@ -287,7 +287,8 @@ extension FolderView {
                 if draggingApp == nil && !isEditingName { 
                     onLaunchApp(app) 
                 }
-            }
+            },
+            contextMenuContent: AnyView(appContextMenu(for: app))
         )
         .frame(height: appHeight)
         .matchedGeometryEffect(id: app.id, in: reorderNamespaceFolder)
@@ -410,6 +411,51 @@ extension FolderView {
                         }
                     }
             )
+    }
+
+    @ViewBuilder
+    private func appContextMenu(for app: AppInfo) -> some View {
+        Button {
+            onLaunchApp(app)
+        } label: {
+            Label(localization.text(.open), systemImage: "arrow.up.forward.app")
+        }
+
+        Button {
+            NSWorkspace.shared.activateFileViewerSelecting([app.url])
+        } label: {
+            Label(localization.text(.showInFinder), systemImage: "folder")
+        }
+
+        Divider()
+
+        Button {
+            appStore.presentRenameAppPanel(for: app)
+        } label: {
+            Label(localization.text(.renameApp), systemImage: "pencil")
+        }
+
+        Button {
+            appStore.presentChangeIconPanel(for: app)
+        } label: {
+            Label(localization.text(.changeIcon), systemImage: "photo")
+        }
+
+        if appStore.hasCustomIcon(for: app) {
+            Button {
+                appStore.resetCustomIcon(for: app)
+            } label: {
+                Label(localization.text(.resetIcon), systemImage: "arrow.counterclockwise")
+            }
+        }
+
+        Divider()
+
+        Button(role: .destructive) {
+            appStore.removeAppFromFolder(app, folder: folder)
+        } label: {
+            Label(localization.text(.remove), systemImage: "trash")
+        }
     }
 }
 
