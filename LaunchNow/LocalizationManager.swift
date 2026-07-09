@@ -76,6 +76,14 @@ enum L10nKey: String {
     case resetLayout
     case quit
     case language
+    case keyboardShortcut
+    case keyboardShortcutDescription
+    case shortcutDisabled
+    case shortcutOptionSpace
+    case shortcutControlSpace
+    case shortcutCommandShiftSpace
+    case shortcutControlOptionSpace
+    case shortcutCommandOptionL
     case english
     case thai
     case japanese
@@ -233,6 +241,14 @@ final class LocalizationManager: ObservableObject {
             .resetLayout: "Reset Layout",
             .quit: "Quit",
             .language: "Language",
+            .keyboardShortcut: "Keyboard shortcut",
+            .keyboardShortcutDescription: "Use this global shortcut to show or hide LaunchNow while it runs in the background.",
+            .shortcutDisabled: "Disabled",
+            .shortcutOptionSpace: "Option + Space",
+            .shortcutControlSpace: "Control + Space",
+            .shortcutCommandShiftSpace: "Command + Shift + Space",
+            .shortcutControlOptionSpace: "Control + Option + Space",
+            .shortcutCommandOptionL: "Command + Option + L",
             .english: "English",
             .thai: "Thai",
             .japanese: "Japanese",
@@ -342,6 +358,14 @@ final class LocalizationManager: ObservableObject {
             .resetLayout: "รีเซ็ตเลย์เอาต์",
             .quit: "ออก",
             .language: "ภาษา",
+            .keyboardShortcut: "คีย์ลัด",
+            .keyboardShortcutDescription: "ใช้คีย์ลัดนี้เพื่อแสดงหรือซ่อน LaunchNow ระหว่างที่แอปทำงานเบื้องหลัง",
+            .shortcutDisabled: "ปิดใช้งาน",
+            .shortcutOptionSpace: "Option + Space",
+            .shortcutControlSpace: "Control + Space",
+            .shortcutCommandShiftSpace: "Command + Shift + Space",
+            .shortcutControlOptionSpace: "Control + Option + Space",
+            .shortcutCommandOptionL: "Command + Option + L",
             .english: "อังกฤษ",
             .thai: "ไทย",
             .japanese: "ญี่ปุ่น",

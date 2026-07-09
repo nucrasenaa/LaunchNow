@@ -56,6 +56,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
 struct SettingsView: View {
     @ObservedObject var appStore: AppStore
     @ObservedObject private var localization = LocalizationManager.shared
+    @ObservedObject private var keyboardShortcutManager = KeyboardShortcutManager.shared
 
     // Sheet / alert states
     @State private var showResetConfirm = false
@@ -282,11 +283,51 @@ struct SettingsView: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
+                Text(localization.text(.keyboardShortcut))
+                    .font(.headline)
+                Picker("", selection: keyboardShortcutBinding) {
+                    ForEach(KeyboardShortcutPreset.allCases) { shortcut in
+                        Text(shortcutTitle(shortcut)).tag(shortcut)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(width: 240)
+
+                Text(localization.text(.keyboardShortcutDescription))
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
                 Text(localization.text(.runInBackground))
                     .font(.headline)
                 Text(localization.text(.runInBackgroundDescription))
                     .foregroundStyle(.secondary)
             }
+        }
+    }
+
+    private var keyboardShortcutBinding: Binding<KeyboardShortcutPreset> {
+        Binding(
+            get: { keyboardShortcutManager.preset },
+            set: { keyboardShortcutManager.setPreset($0) }
+        )
+    }
+
+    private func shortcutTitle(_ shortcut: KeyboardShortcutPreset) -> String {
+        switch shortcut {
+        case .disabled:
+            return localization.text(.shortcutDisabled)
+        case .optionSpace:
+            return localization.text(.shortcutOptionSpace)
+        case .controlSpace:
+            return localization.text(.shortcutControlSpace)
+        case .commandShiftSpace:
+            return localization.text(.shortcutCommandShiftSpace)
+        case .controlOptionSpace:
+            return localization.text(.shortcutControlOptionSpace)
+        case .commandOptionL:
+            return localization.text(.shortcutCommandOptionL)
         }
     }
 

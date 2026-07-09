@@ -13,38 +13,34 @@ Use this checklist to track future features. We can work through them one by one
 - [x] 3. Right-click Context Menu
   - Add contextual actions for apps and folders: Open, Show in Finder, Change Icon, Reset Icon, Rename, Remove.
 
-- [ ] 4. Drag App from Finder into LaunchNow
-  - Allow dropping `.app` bundles directly into the LaunchNow grid.
-
-- [ ] 5. Keyboard Shortcut / Hotkey Setting
+- [x] 4. Keyboard Shortcut / Hotkey Setting
   - Let users configure a global shortcut to show or hide LaunchNow.
 
-- [ ] 6. Theme / Appearance Presets
+- [ ] 5. Theme / Appearance Presets
   - Add presets such as Glass, Dark, Light, Compact, and Classic Launchpad.
 
-- [ ] 7. Backup / Restore Profiles
+- [ ] 6. Backup / Restore Profiles
   - Support multiple saved layouts, such as Work, Personal, Gaming, or exported/imported profiles.
 
-- [ ] 8. Recently Used / Favorites Page
+- [ ] 7. Recently Used / Favorites Page
   - Add a dynamic page or section for favorite apps and recently launched apps.
 
-- [ ] 9. Search Actions
+- [ ] 8. Search Actions
   - Let search results expose actions such as Open, Show in Finder, Change Icon, and Remove.
 
-- [ ] 10. Auto-organize Apps
+- [ ] 9. Auto-organize Apps
   - Group apps automatically by category, such as Developer, Design, Games, Utilities, and Productivity.
 
-- [ ] 11. Change Background
+- [ ] 10. Change Background
   - Let users customize the LaunchNow background with colors, images, opacity, blur, and appearance presets.
 
 ## Suggested Order
 
 - [x] Right-click Context Menu
-- [ ] Rename App Display Name
+- [x] Rename App Display Name
 - [ ] Change Background
-- [ ] Custom Folder Icon
-- [ ] Drag App from Finder into LaunchNow
-- [ ] Keyboard Shortcut / Hotkey Setting
+- [x] Custom Folder Icon
+- [x] Keyboard Shortcut / Hotkey Setting
 - [ ] Recently Used / Favorites Page
 - [ ] Search Actions
 - [ ] Theme / Appearance Presets

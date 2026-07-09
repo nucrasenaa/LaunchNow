@@ -44,6 +44,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         appStore.performInitialScanIfNeeded()
         appStore.startAutoRescan()
         AppUpdateManager.shared.startAutomaticUpdateChecks()
+        KeyboardShortcutManager.shared.start()
         
         if appStore.isFullscreenMode { updateWindowMode(isFullscreen: true) }
     }
@@ -110,6 +111,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.setFrame(rect, display: true)
         window.level = appStore.isFullscreenMode ? .screenSaver : .floating
         applyCornerRadius()
+        NSApp.activate(ignoringOtherApps: true)
         window.makeKey()
         lastShowAt = Date()
         NotificationCenter.default.post(name: .launchpadWindowShown, object: nil)
@@ -126,6 +128,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         appStore.openFolder = nil
         appStore.saveAllOrder()
         NotificationCenter.default.post(name: .launchpadWindowHidden, object: nil)
+    }
+
+    func toggleWindow() {
+        if window?.isVisible == true {
+            hideWindow()
+        } else {
+            showWindow()
+        }
     }
     
     func updateWindowMode(isFullscreen: Bool) {
@@ -188,11 +198,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if window?.isVisible == true {
-            hideWindow()
-        } else {
-            showWindow()
-        }
+        toggleWindow()
         return false
     }
     
