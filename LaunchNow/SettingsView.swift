@@ -69,6 +69,8 @@ struct SettingsView: View {
     @State private var isInstallingUpdate = false
     @State private var availableUpdate: AppUpdateInfo?
     @State private var updateStatusMessage: String?
+    @State private var profileName: String = ""
+    @State private var renamingProfileID: String?
 
     // UI state
     @State private var selected: SettingsSection = .general
@@ -299,6 +301,27 @@ struct SettingsView: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
+                Text(localization.text(.searchScope))
+                    .font(.headline)
+                Picker("", selection: $appStore.searchScope) {
+                    ForEach(LaunchpadSearchScope.allCases) { scope in
+                        Text(searchScopeTitle(scope)).tag(scope)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 360)
+                .onChange(of: appStore.searchScope) { _, newValue in
+                    if newValue == .allApplications, appStore.availableApps.isEmpty {
+                        appStore.performInitialScanIfNeeded()
+                    }
+                }
+
+                Text(localization.text(.searchScopeDescription))
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
                 Text(localization.text(.runInBackground))
                     .font(.headline)
                 Text(localization.text(.runInBackgroundDescription))
@@ -331,8 +354,30 @@ struct SettingsView: View {
         }
     }
 
+    private func searchScopeTitle(_ scope: LaunchpadSearchScope) -> String {
+        switch scope {
+        case .launchNowApps:
+            return localization.text(.searchLaunchNowApps)
+        case .allApplications:
+            return localization.text(.searchAllApplications)
+        }
+    }
+
     private var appearancePane: some View {
         VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(localization.text(.appearancePreset))
+                    .font(.headline)
+                Picker("", selection: appearancePresetBinding) {
+                    ForEach(LaunchpadAppearancePreset.allCases) { preset in
+                        Text(appearancePresetTitle(preset)).tag(preset)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 520)
+            }
+
             VStack(alignment: .leading, spacing: 8) {
                 Text(localization.text(.classicLaunchpad))
                     .font(.headline)
@@ -354,6 +399,104 @@ struct SettingsView: View {
                 }
                 .frame(maxWidth: 380)
             }
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text(localization.text(.background))
+                    .font(.headline)
+
+                HStack {
+                    Text(localization.text(.backgroundPreset))
+                    Spacer()
+                    Picker("", selection: $appStore.backgroundPreset) {
+                        ForEach(LaunchpadBackgroundPreset.allCases) { preset in
+                            Text(backgroundPresetTitle(preset)).tag(preset)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(width: 180)
+                }
+                .frame(maxWidth: 380)
+
+                if appStore.backgroundPreset == .customImage {
+                    HStack(spacing: 10) {
+                        Button {
+                            appStore.presentChooseBackgroundImagePanel()
+                        } label: {
+                            Label(localization.text(.choose), systemImage: "photo")
+                        }
+                        .buttonStyle(.bordered)
+
+                        if appStore.customBackgroundImageURL != nil {
+                            Button {
+                                appStore.resetCustomBackgroundImage()
+                            } label: {
+                                Label(localization.text(.reset), systemImage: "arrow.counterclockwise")
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                }
+
+                HStack {
+                    Text(localization.text(.backgroundOpacity))
+                    Spacer()
+                    Text("\(Int(appStore.backgroundOpacity * 100))%")
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: 380)
+                Slider(value: $appStore.backgroundOpacity, in: 0.2...1.0)
+                    .frame(maxWidth: 380)
+
+                HStack {
+                    Text(localization.text(.backgroundBlur))
+                    Spacer()
+                    Text("\(Int(appStore.backgroundBlur))")
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: 380)
+                Slider(value: $appStore.backgroundBlur, in: 0...40)
+                    .frame(maxWidth: 380)
+            }
+        }
+    }
+
+    private var appearancePresetBinding: Binding<LaunchpadAppearancePreset> {
+        Binding(
+            get: { appStore.appearancePreset },
+            set: { appStore.applyAppearancePreset($0) }
+        )
+    }
+
+    private func appearancePresetTitle(_ preset: LaunchpadAppearancePreset) -> String {
+        switch preset {
+        case .glass:
+            return localization.text(.appearanceGlass)
+        case .dark:
+            return localization.text(.appearanceDark)
+        case .light:
+            return localization.text(.appearanceLight)
+        case .compact:
+            return localization.text(.appearanceCompact)
+        case .classicLaunchpad:
+            return localization.text(.appearanceClassicLaunchpad)
+        }
+    }
+
+    private func backgroundPresetTitle(_ preset: LaunchpadBackgroundPreset) -> String {
+        switch preset {
+        case .system:
+            return localization.text(.backgroundSystem)
+        case .aurora:
+            return localization.text(.backgroundAurora)
+        case .graphite:
+            return localization.text(.backgroundGraphite)
+        case .sunset:
+            return localization.text(.backgroundSunset)
+        case .forest:
+            return localization.text(.backgroundForest)
+        case .customImage:
+            return localization.text(.backgroundCustomImage)
         }
     }
 
@@ -670,6 +813,57 @@ struct SettingsView: View {
 
     private var dataPane: some View {
         VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(localization.text(.profiles))
+                    .font(.headline)
+                Text(localization.text(.profilesDescription))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 10) {
+                    TextField(localization.text(.profileName), text: $profileName)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 260)
+
+                    Button {
+                        commitProfileNameAction()
+                    } label: {
+                        Label(
+                            renamingProfileID == nil ? localization.text(.saveCurrentProfile) : localization.text(.renameProfile),
+                            systemImage: renamingProfileID == nil ? "plus.circle" : "pencil"
+                        )
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(profileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                    if renamingProfileID != nil {
+                        Button {
+                            renamingProfileID = nil
+                            profileName = ""
+                        } label: {
+                            Text(localization.text(.cancel))
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+
+                if appStore.profiles.isEmpty {
+                    Text(localization.text(.noProfiles))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .padding(.vertical, 6)
+                } else {
+                    VStack(spacing: 8) {
+                        ForEach(appStore.profiles) { profile in
+                            profileRow(profile)
+                        }
+                    }
+                    .frame(maxWidth: 560)
+                }
+            }
+
+            Divider().padding(.vertical, 4)
+
             HStack(spacing: 12) {
                 Button {
                     exportDataFolder()
@@ -690,6 +884,74 @@ struct SettingsView: View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
+    }
+
+    private func commitProfileNameAction() {
+        let name = profileName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+
+        if let renamingProfileID {
+            appStore.renameProfile(id: renamingProfileID, to: name)
+            self.renamingProfileID = nil
+        } else {
+            appStore.saveCurrentProfile(named: name)
+        }
+        profileName = ""
+    }
+
+    private func profileRow(_ profile: AppStore.ProfileSummary) -> some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(profile.name)
+                    .font(.body.weight(.semibold))
+                Text(localization.text(.updatedFormat, profileDateFormatter.string(from: profile.updatedAt)))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Button {
+                appStore.applyProfile(id: profile.id)
+            } label: {
+                Label(localization.text(.applyProfile), systemImage: "arrow.down.doc")
+            }
+            .buttonStyle(.bordered)
+
+            Button {
+                renamingProfileID = profile.id
+                profileName = profile.name
+            } label: {
+                Image(systemName: "pencil")
+            }
+            .buttonStyle(.bordered)
+            .help(localization.text(.renameProfile))
+
+            Button {
+                if renamingProfileID == profile.id {
+                    renamingProfileID = nil
+                    profileName = ""
+                }
+                appStore.deleteProfile(id: profile.id)
+            } label: {
+                Image(systemName: "trash")
+                    .foregroundStyle(.red)
+            }
+            .buttonStyle(.bordered)
+            .help(localization.text(.deleteProfile))
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.primary.opacity(0.06))
+        )
+    }
+
+    private var profileDateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
     }
 
     private var aboutPane: some View {
@@ -1002,6 +1264,11 @@ struct SettingsView: View {
         let gridColumns: Int
         let gridRows: Int
         let scrollSensitivity: Double
+        let appearancePreset: String?
+        let backgroundPreset: String?
+        let backgroundOpacity: Double?
+        let backgroundBlur: Double?
+        let customBackgroundImagePath: String?
     }
 
     private func settingsFileURL(in folder: URL) -> URL {
@@ -1010,11 +1277,16 @@ struct SettingsView: View {
 
     private func writeSettingsFile(to folder: URL) throws {
         let settings = ExportedSettings(
-            version: 1,
+            version: 2,
             isFullscreenMode: appStore.isFullscreenMode,
             gridColumns: appStore.gridColumns,
             gridRows: appStore.gridRows,
-            scrollSensitivity: appStore.scrollSensitivity
+            scrollSensitivity: appStore.scrollSensitivity,
+            appearancePreset: appStore.appearancePreset.rawValue,
+            backgroundPreset: appStore.backgroundPreset.rawValue,
+            backgroundOpacity: appStore.backgroundOpacity,
+            backgroundBlur: appStore.backgroundBlur,
+            customBackgroundImagePath: appStore.customBackgroundImagePath
         )
         let data = try JSONEncoder().encode(settings)
         try data.write(to: settingsFileURL(in: folder), options: [.atomic])
@@ -1030,6 +1302,13 @@ struct SettingsView: View {
             self.appStore.gridColumns = decoded.gridColumns
             self.appStore.gridRows = decoded.gridRows
             self.appStore.scrollSensitivity = decoded.scrollSensitivity
+            self.appStore.applyImportedBackgroundSettings(
+                presetRawValue: decoded.backgroundPreset,
+                appearancePresetRawValue: decoded.appearancePreset,
+                opacity: decoded.backgroundOpacity,
+                blur: decoded.backgroundBlur,
+                customImagePath: decoded.customBackgroundImagePath
+            )
         }
     }
 

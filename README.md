@@ -12,11 +12,15 @@ LaunchNow is a polished fork of [ggkevinnnn/LaunchNow](https://github.com/ggkevi
 - **Custom grid designer** to tune columns (3–12), rows (2–8), and instantly preview the layout.
 - **App Sources control** to add external drives or custom folders that LaunchNow monitors alongside the default system locations.
 - **Personalization tools** to rename apps and folders, change app icons, and change folder icons without modifying the real `.app` bundle.
+- **Background customization** with appearance presets, custom images, opacity, and blur controls.
+- **Appearance presets** for Glass, Dark, Light, Compact, and Classic Launchpad looks.
 - **Right-click context menus** for fast actions like Open, Show in Finder, Rename, Change Icon, Reset Icon, and Remove.
 - **Smart controls** for fullscreen classic mode, scrolling sensitivity, multilingual UI, and background behavior.
 - **Power tools** to add, remove, or reset apps with searchable sheets and guardrails for destructive actions.
 - **Backup & restore** workflows that validate SwiftData stores before importing.
 - **Built-in updates** with background update checks and release downloads from GitHub.
+- **Local profiles** to save, rename, apply, and delete multiple LaunchNow layouts and appearance setups.
+- **Configurable search scope** to search either LaunchNow apps only or all applications found on the Mac.
 
 ## Quick Start
 
@@ -24,10 +28,12 @@ LaunchNow is a polished fork of [ggkevinnnn/LaunchNow](https://github.com/ggkevi
 2. Open System Settings → Privacy & Security → allow the unidentified developer prompt.
 3. LaunchNow runs in the background, so use `Option + Space` to show or hide it quickly.
 4. Open Settings → General to change the language or keyboard shortcut.
-5. In Settings → App Management, choose the apps you want to add.
-6. Drag apps to reorder or group them into folders on the fly.
-7. Right-click an app or folder to rename it, change its icon, show it in Finder, or remove it from LaunchNow.
-8. Need a fresh slate? Use Reset Apps to clear the LaunchNow grid. Your apps on disk stay untouched.
+5. In Settings → General, choose whether search covers only LaunchNow apps or all applications on the Mac.
+6. In Settings → App Management, choose the apps you want to add.
+7. Drag apps to reorder or group them into folders on the fly.
+8. Right-click an app or folder to rename it, change its icon, show it in Finder, or remove it from LaunchNow.
+9. Save layouts in Settings → Data → Profiles so you can switch between work, personal, or gaming setups.
+10. Need a fresh slate? Use Reset Apps to clear the LaunchNow grid. Your apps on disk stay untouched.
 
 ## Languages
 

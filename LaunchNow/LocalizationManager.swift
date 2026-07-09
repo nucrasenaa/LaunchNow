@@ -98,9 +98,31 @@ enum L10nKey: String {
     case system
     case runInBackground
     case runInBackgroundDescription
+    case searchScope
+    case searchScopeDescription
+    case searchLaunchNowApps
+    case searchAllApplications
     case classicLaunchpad
     case fullscreenLayout
     case scrollingSensitivity
+    case appearancePreset
+    case appearanceGlass
+    case appearanceDark
+    case appearanceLight
+    case appearanceCompact
+    case appearanceClassicLaunchpad
+    case background
+    case backgroundPreset
+    case backgroundOpacity
+    case backgroundBlur
+    case backgroundSystem
+    case backgroundAurora
+    case backgroundGraphite
+    case backgroundSunset
+    case backgroundForest
+    case backgroundCustomImage
+    case chooseBackgroundImage
+    case resetBackgroundImage
     case low
     case high
     case columns
@@ -138,6 +160,15 @@ enum L10nKey: String {
     case exportData
     case importData
     case exportImportDescription
+    case profiles
+    case profileName
+    case saveCurrentProfile
+    case renameProfile
+    case applyProfile
+    case deleteProfile
+    case noProfiles
+    case profilesDescription
+    case updatedFormat
     case versionFormat
     case aboutDescription
     case checkForUpdates
@@ -263,9 +294,31 @@ final class LocalizationManager: ObservableObject {
             .system: "System",
             .runInBackground: "Run in background",
             .runInBackgroundDescription: "Add LaunchNow to the Dock or use keyboard shortcuts to open the window quickly.",
+            .searchScope: "Search scope",
+            .searchScopeDescription: "Choose whether LaunchNow search includes only added apps or every app found on this Mac.",
+            .searchLaunchNowApps: "LaunchNow Apps",
+            .searchAllApplications: "All Applications",
             .classicLaunchpad: "Classic Launchpad (Fullscreen)",
             .fullscreenLayout: "Use fullscreen layout and spacing",
             .scrollingSensitivity: "Scrolling sensitivity",
+            .appearancePreset: "Appearance preset",
+            .appearanceGlass: "Glass",
+            .appearanceDark: "Dark",
+            .appearanceLight: "Light",
+            .appearanceCompact: "Compact",
+            .appearanceClassicLaunchpad: "Classic Launchpad",
+            .background: "Background",
+            .backgroundPreset: "Preset",
+            .backgroundOpacity: "Opacity",
+            .backgroundBlur: "Blur",
+            .backgroundSystem: "System Glass",
+            .backgroundAurora: "Aurora",
+            .backgroundGraphite: "Graphite",
+            .backgroundSunset: "Sunset",
+            .backgroundForest: "Forest",
+            .backgroundCustomImage: "Custom Image",
+            .chooseBackgroundImage: "Choose an image to use as the LaunchNow background.",
+            .resetBackgroundImage: "Reset Background Image",
             .low: "Low",
             .high: "High",
             .columns: "Columns",
@@ -303,6 +356,15 @@ final class LocalizationManager: ObservableObject {
             .exportData: "Export Data",
             .importData: "Import Data",
             .exportImportDescription: "Export/Import includes your layout, folders and settings.",
+            .profiles: "Profiles",
+            .profileName: "Profile name",
+            .saveCurrentProfile: "Save Current Profile",
+            .renameProfile: "Rename Profile",
+            .applyProfile: "Apply",
+            .deleteProfile: "Delete",
+            .noProfiles: "No profiles yet.",
+            .profilesDescription: "Save multiple LaunchNow layouts and settings, then switch between them anytime.",
+            .updatedFormat: "Updated %@",
             .versionFormat: "Version %@",
             .aboutDescription: "A lightweight Launchpad-like app launcher.",
             .checkForUpdates: "Check for Updates",
@@ -380,9 +442,31 @@ final class LocalizationManager: ObservableObject {
             .system: "ตามระบบ",
             .runInBackground: "ทำงานเบื้องหลัง",
             .runInBackgroundDescription: "เพิ่ม LaunchNow ไว้ใน Dock หรือใช้คีย์ลัดเพื่อเปิดหน้าต่างได้รวดเร็ว",
+            .searchScope: "ขอบเขตการค้นหา",
+            .searchScopeDescription: "เลือกว่าจะค้นหาเฉพาะแอปที่เพิ่มใน LaunchNow หรือค้นหาแอปทั้งหมดที่พบในเครื่องนี้",
+            .searchLaunchNowApps: "แอปใน LaunchNow",
+            .searchAllApplications: "แอปทั้งหมด",
             .classicLaunchpad: "Launchpad แบบคลาสสิก (เต็มหน้าจอ)",
             .fullscreenLayout: "ใช้เลย์เอาต์และระยะห่างแบบเต็มหน้าจอ",
             .scrollingSensitivity: "ความไวในการเลื่อน",
+            .appearancePreset: "รูปแบบหน้าตา",
+            .appearanceGlass: "Glass",
+            .appearanceDark: "Dark",
+            .appearanceLight: "Light",
+            .appearanceCompact: "Compact",
+            .appearanceClassicLaunchpad: "Classic Launchpad",
+            .background: "พื้นหลัง",
+            .backgroundPreset: "รูปแบบ",
+            .backgroundOpacity: "ความทึบ",
+            .backgroundBlur: "เบลอ",
+            .backgroundSystem: "กระจกระบบ",
+            .backgroundAurora: "Aurora",
+            .backgroundGraphite: "Graphite",
+            .backgroundSunset: "Sunset",
+            .backgroundForest: "Forest",
+            .backgroundCustomImage: "รูปภาพกำหนดเอง",
+            .chooseBackgroundImage: "เลือกรูปภาพเพื่อใช้เป็นพื้นหลัง LaunchNow",
+            .resetBackgroundImage: "รีเซ็ตรูปพื้นหลัง",
             .low: "ต่ำ",
             .high: "สูง",
             .columns: "คอลัมน์",
@@ -420,6 +504,15 @@ final class LocalizationManager: ObservableObject {
             .exportData: "ส่งออกข้อมูล",
             .importData: "นำเข้าข้อมูล",
             .exportImportDescription: "การส่งออก/นำเข้าจะรวมเลย์เอาต์ โฟลเดอร์ และการตั้งค่า",
+            .profiles: "โปรไฟล์",
+            .profileName: "ชื่อโปรไฟล์",
+            .saveCurrentProfile: "บันทึกโปรไฟล์ปัจจุบัน",
+            .renameProfile: "เปลี่ยนชื่อโปรไฟล์",
+            .applyProfile: "ใช้",
+            .deleteProfile: "ลบ",
+            .noProfiles: "ยังไม่มีโปรไฟล์",
+            .profilesDescription: "บันทึกเลย์เอาต์และการตั้งค่า LaunchNow หลายชุด แล้วสลับใช้งานได้ทุกเวลา",
+            .updatedFormat: "อัปเดต %@",
             .versionFormat: "เวอร์ชัน %@",
             .aboutDescription: "ตัวเปิดแอปน้ำหนักเบาที่ให้ความรู้สึกคล้าย Launchpad",
             .checkForUpdates: "ตรวจหาอัปเดต",

@@ -49,6 +49,14 @@ final class CustomAppNameManager {
         defaults.removeObject(forKey: defaultsKey)
     }
 
+    func exportNames() -> [String: String] {
+        storedNames
+    }
+
+    func replaceNames(_ names: [String: String]) {
+        storedNames = names
+    }
+
     private var storedNames: [String: String] {
         get { defaults.dictionary(forKey: defaultsKey) as? [String: String] ?? [:] }
         set { defaults.set(newValue, forKey: defaultsKey) }

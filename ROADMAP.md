@@ -16,33 +16,33 @@ Use this checklist to track future features. We can work through them one by one
 - [x] 4. Keyboard Shortcut / Hotkey Setting
   - Let users configure a global shortcut to show or hide LaunchNow.
 
-- [ ] 5. Theme / Appearance Presets
+- [x] 5. Theme / Appearance Presets
   - Add presets such as Glass, Dark, Light, Compact, and Classic Launchpad.
 
-- [ ] 6. Backup / Restore Profiles
+- [x] 6. Backup / Restore Profiles
   - Support multiple saved layouts, such as Work, Personal, Gaming, or exported/imported profiles.
 
-- [ ] 7. Recently Used / Favorites Page
-  - Add a dynamic page or section for favorite apps and recently launched apps.
+- [ ] 7. Cloud Folder Sync
+  - Let users choose an iCloud Drive, Google Drive, Dropbox, OneDrive, or other synced folder for online profile backups.
 
-- [ ] 8. Search Actions
-  - Let search results expose actions such as Open, Show in Finder, Change Icon, and Remove.
+- [x] 8. Search Actions
+  - Let users choose whether search covers LaunchNow apps or all apps on the Mac, while exposing contextual actions in search results.
 
 - [ ] 9. Auto-organize Apps
   - Group apps automatically by category, such as Developer, Design, Games, Utilities, and Productivity.
 
-- [ ] 10. Change Background
+- [x] 10. Change Background
   - Let users customize the LaunchNow background with colors, images, opacity, blur, and appearance presets.
 
 ## Suggested Order
 
 - [x] Right-click Context Menu
 - [x] Rename App Display Name
-- [ ] Change Background
+- [x] Change Background
 - [x] Custom Folder Icon
 - [x] Keyboard Shortcut / Hotkey Setting
-- [ ] Recently Used / Favorites Page
-- [ ] Search Actions
-- [ ] Theme / Appearance Presets
-- [ ] Backup / Restore Profiles
+- [ ] Cloud Folder Sync
+- [x] Search Actions
+- [x] Theme / Appearance Presets
+- [x] Backup / Restore Profiles
 - [ ] Auto-organize Apps

@@ -60,6 +60,40 @@ final class CustomFolderIconManager {
         }
     }
 
+    func exportIconFiles() -> [String: String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return iconFilesById
+    }
+
+    func exportIconsDirectoryURL() -> URL {
+        iconsDirectoryURL()
+    }
+
+    func replaceIcons(with mapping: [String: String], from sourceDirectory: URL) throws {
+        let destinationDirectory = iconsDirectoryURL()
+        if fileManager.fileExists(atPath: destinationDirectory.path) {
+            try fileManager.removeItem(at: destinationDirectory)
+        }
+        try fileManager.createDirectory(at: destinationDirectory, withIntermediateDirectories: true)
+
+        if fileManager.fileExists(atPath: sourceDirectory.path) {
+            let files = try fileManager.contentsOfDirectory(at: sourceDirectory, includingPropertiesForKeys: nil)
+            for file in files {
+                try fileManager.copyItem(
+                    at: file,
+                    to: destinationDirectory.appendingPathComponent(file.lastPathComponent, isDirectory: false)
+                )
+            }
+        }
+
+        lock.lock()
+        iconFilesById = mapping
+        let snapshot = iconFilesById
+        lock.unlock()
+        UserDefaults.standard.set(snapshot, forKey: Self.defaultsKey)
+    }
+
     private func iconsDirectoryURL() -> URL {
         let appSupport = try? fileManager.url(
             for: .applicationSupportDirectory,

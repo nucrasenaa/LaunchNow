@@ -78,7 +78,8 @@ struct LaunchpadView: View {
     private var config: GridConfig {
         GridConfig(isFullscreen: appStore.isFullscreenMode,
                    columns: appStore.gridColumns,
-                   rows: appStore.gridRows)
+                   rows: appStore.gridRows,
+                   isCompact: appStore.appearancePreset.isCompact)
     }
     
     // เพิ่ม: state สำหรับดีเลย์ reorder
@@ -118,6 +119,15 @@ struct LaunchpadView: View {
                 
             case .empty:
                 break
+            }
+        }
+
+        if appStore.searchScope == .allApplications {
+            for app in appStore.availableApps {
+                guard app.name.localizedCaseInsensitiveContains(appStore.searchText) else { continue }
+                if searchedApps.insert(app.url.path).inserted {
+                    result.append(.app(app))
+                }
             }
         }
         
@@ -183,13 +193,17 @@ struct LaunchpadView: View {
             let actualBottomPadding = config.isFullscreen ? geo.size.height * config.bottomPadding : 0
             let actualHorizontalPadding = config.isFullscreen ? geo.size.width * config.horizontalPadding : 0
             
-            VStack {
-                // 在顶部添加动态padding（全屏模式）
-                if config.isFullscreen {
-                    Spacer()
-                        .frame(height: actualTopPadding)
-                }
-                HStack(spacing: 8) {
+            ZStack {
+                LaunchpadBackgroundView(appStore: appStore)
+                    .allowsHitTesting(false)
+
+                VStack {
+                    // 在顶部添加动态padding（全屏模式）
+                    if config.isFullscreen {
+                        Spacer()
+                            .frame(height: actualTopPadding)
+                    }
+                    HStack(spacing: 8) {
                     TextField(localization.text(.search), text: $appStore.searchText)
                     .disabled(isFolderOpen)
                     .onChange(of: appStore.searchText) {
@@ -220,7 +234,7 @@ struct LaunchpadView: View {
                     .sheet(isPresented: $appStore.isSetting) {
                         SettingsView(appStore: appStore)
                     }
-                }
+                    }
                 .padding(.top)
                 .padding(.horizontal)
                 .opacity(isFolderOpen ? 0.1 : 1)
@@ -385,11 +399,17 @@ struct LaunchpadView: View {
                         .frame(height: actualBottomPadding)
                 }
 
+                }
+                .padding(appStore.appearancePreset.contentPadding)
+                .padding(.horizontal, actualHorizontalPadding)
+                .background(
+                    RoundedRectangle(cornerRadius: appStore.isFullscreenMode ? 0 : appStore.appearancePreset.cornerRadius)
+                        .fill(appStore.appearancePreset.surfaceTint.opacity(appStore.appearancePreset.surfaceTintOpacity))
+                )
+                .glassEffect(.regular , in: RoundedRectangle(cornerRadius: appStore.isFullscreenMode ? 0 : appStore.appearancePreset.cornerRadius))
             }
-            .padding(.horizontal, actualHorizontalPadding)
         }
-        .padding()
-        .glassEffect(.regular , in: RoundedRectangle(cornerRadius: appStore.isFullscreenMode ? 0 : 30))
+        .preferredColorScheme(appStore.appearancePreset.preferredColorScheme)
         .ignoresSafeArea()
         .overlay(
             ZStack {
@@ -601,12 +621,27 @@ struct LaunchpadView: View {
             }
         }
 
-        Divider()
+        if isAppInLaunchNow(app) {
+            Divider()
 
-        Button(role: .destructive) {
-            appStore.removeSelectedApps(fromAppInfos: [app])
-        } label: {
-            Label(localization.text(.remove), systemImage: "trash")
+            Button(role: .destructive) {
+                appStore.removeSelectedApps(fromAppInfos: [app])
+            } label: {
+                Label(localization.text(.remove), systemImage: "trash")
+            }
+        }
+    }
+
+    private func isAppInLaunchNow(_ app: AppInfo) -> Bool {
+        appStore.items.contains { item in
+            switch item {
+            case .app(let itemApp):
+                return itemApp.url.path == app.url.path
+            case .folder(let folder):
+                return folder.apps.contains { $0.url.path == app.url.path }
+            case .empty:
+                return false
+            }
         }
     }
 
@@ -1509,19 +1544,21 @@ struct GridConfig {
     let isFullscreen: Bool
     let columns: Int
     let rows: Int
+    let isCompact: Bool
     
-    init(isFullscreen: Bool = false, columns: Int, rows: Int) {
+    init(isFullscreen: Bool = false, columns: Int, rows: Int, isCompact: Bool = false) {
         self.isFullscreen = isFullscreen
         self.columns = max(1, columns)
         self.rows = max(1, rows)
+        self.isCompact = isCompact
     }
     
     var itemsPerPage: Int { max(1, columns * rows) }
     
     let maxBounce: CGFloat = 80
-    let pageSpacing: CGFloat = 100
-    let rowSpacing: CGFloat = 16
-    let columnSpacing: CGFloat = 24
+    var pageSpacing: CGFloat { isCompact ? 70 : 100 }
+    var rowSpacing: CGFloat { isCompact ? 8 : 16 }
+    var columnSpacing: CGFloat { isCompact ? 14 : 24 }
     
     // เพิ่ม: ดีเลย์ก่อนสลับตำแหน่ง เพื่อให้สร้างโฟลเดอร์ได้ง่ายขึ้น
     let reorderDelayBeforeSwap: TimeInterval = 0.1
@@ -1537,9 +1574,9 @@ struct GridConfig {
     let pageNavigation = PageNavigation()
     let folderCreateDwell: TimeInterval = 0
     
-    var horizontalPadding: CGFloat { isFullscreen ? 0.05 : 0 }
-    var topPadding: CGFloat { isFullscreen ? 0.05 : 0 }
-    var bottomPadding: CGFloat { isFullscreen ? 0.1 : 0 }
+    var horizontalPadding: CGFloat { isFullscreen ? (isCompact ? 0.035 : 0.05) : 0 }
+    var topPadding: CGFloat { isFullscreen ? (isCompact ? 0.03 : 0.05) : 0 }
+    var bottomPadding: CGFloat { isFullscreen ? (isCompact ? 0.06 : 0.1) : 0 }
     
     var gridItems: [GridItem] {
         Array(repeating: GridItem(.flexible(), spacing: columnSpacing), count: columns)

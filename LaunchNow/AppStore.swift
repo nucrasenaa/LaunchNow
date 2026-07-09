@@ -4,15 +4,75 @@ import Combine
 import SwiftData
 import UniformTypeIdentifiers
 
+enum LaunchpadSearchScope: String, CaseIterable, Identifiable {
+    case launchNowApps
+    case allApplications
+
+    var id: String { rawValue }
+}
+
 final class AppStore: ObservableObject {
+    struct ProfileSummary: Identifiable, Codable, Equatable {
+        let id: String
+        var name: String
+        var createdAt: Date
+        var updatedAt: Date
+    }
+
+    private struct ProfileDocument: Codable {
+        var summary: ProfileSummary
+        var snapshot: ProfileSnapshot
+    }
+
+    private struct ProfileSnapshot: Codable {
+        var settings: ProfileSettings
+        var items: [ProfileItem]
+        var customAppNames: [String: String]
+        var customAppIconFiles: [String: String]
+        var customFolderIconFiles: [String: String]
+    }
+
+    private struct ProfileSettings: Codable {
+        var isFullscreenMode: Bool
+        var scrollSensitivity: Double
+        var gridColumns: Int
+        var gridRows: Int
+        var customApplicationSearchPaths: [String]
+        var language: String
+        var keyboardShortcut: String
+        var searchScope: String?
+        var appearancePreset: String
+        var backgroundPreset: String
+        var backgroundOpacity: Double
+        var backgroundBlur: Double
+        var customBackgroundImagePath: String?
+    }
+
+    private struct ProfileItem: Codable {
+        var kind: String
+        var appPath: String?
+        var folderId: String?
+        var folderName: String?
+        var folderAppPaths: [String]
+        var emptyId: String?
+    }
+
     @Published var apps: [AppInfo] = []                  // แอปที่อยู่ใน Launchpad (ผู้ใช้เลือกแล้ว)
     @Published var availableApps: [AppInfo] = []         // แอปทั้งหมดที่สแกนเจอ ใช้เป็น source สำหรับ Import
     
     @Published var folders: [FolderInfo] = []
     @Published var items: [LaunchpadItem] = []
+    @Published private(set) var profiles: [ProfileSummary] = []
     @Published var isSetting = false
     @Published var currentPage = 0
     @Published var searchText: String = ""
+    @Published var searchScope: LaunchpadSearchScope = .launchNowApps {
+        didSet {
+            UserDefaults.standard.set(searchScope.rawValue, forKey: Self.searchScopeDefaultsKey)
+            currentPage = 0
+            triggerGridRefresh()
+        }
+    }
     @Published var isStartOnLogin: Bool = false
     @Published var isFullscreenMode: Bool = false {
         didSet {
@@ -32,6 +92,45 @@ final class AppStore: ObservableObject {
         didSet {
             UserDefaults.standard.set(scrollSensitivity, forKey: "scrollSensitivity")
         }
+    }
+
+    @Published var backgroundPreset: LaunchpadBackgroundPreset = .system {
+        didSet {
+            UserDefaults.standard.set(backgroundPreset.rawValue, forKey: Self.backgroundPresetDefaultsKey)
+        }
+    }
+
+    @Published var appearancePreset: LaunchpadAppearancePreset = .glass {
+        didSet {
+            UserDefaults.standard.set(appearancePreset.rawValue, forKey: Self.appearancePresetDefaultsKey)
+            triggerGridRefresh()
+        }
+    }
+
+    @Published var backgroundOpacity: Double = 1.0 {
+        didSet {
+            let clamped = max(0.2, min(backgroundOpacity, 1.0))
+            if backgroundOpacity != clamped { backgroundOpacity = clamped; return }
+            UserDefaults.standard.set(backgroundOpacity, forKey: Self.backgroundOpacityDefaultsKey)
+        }
+    }
+
+    @Published var backgroundBlur: Double = 0.0 {
+        didSet {
+            let clamped = max(0.0, min(backgroundBlur, 40.0))
+            if backgroundBlur != clamped { backgroundBlur = clamped; return }
+            UserDefaults.standard.set(backgroundBlur, forKey: Self.backgroundBlurDefaultsKey)
+        }
+    }
+
+    @Published private(set) var customBackgroundImagePath: String? {
+        didSet {
+            UserDefaults.standard.set(customBackgroundImagePath, forKey: Self.customBackgroundImagePathDefaultsKey)
+        }
+    }
+
+    var customBackgroundImageURL: URL? {
+        customBackgroundImagePath.map { URL(fileURLWithPath: $0) }
     }
     
     // 新增：可配置的列/行数（用于 SettingsView）
@@ -106,6 +205,12 @@ final class AppStore: ObservableObject {
     }
     
     private static let customSearchPathsDefaultsKey = "customApplicationSearchPaths"
+    private static let searchScopeDefaultsKey = "searchScope"
+    private static let appearancePresetDefaultsKey = "appearancePreset"
+    private static let backgroundPresetDefaultsKey = "backgroundPreset"
+    private static let backgroundOpacityDefaultsKey = "backgroundOpacity"
+    private static let backgroundBlurDefaultsKey = "backgroundBlur"
+    private static let customBackgroundImagePathDefaultsKey = "customBackgroundImagePath"
     private var isInitializingCustomPaths = false
     
     private var applicationSearchPaths: [String] {
@@ -137,6 +242,24 @@ final class AppStore: ObservableObject {
         if self.scrollSensitivity == 0.0 {
             self.scrollSensitivity = 0.15
         }
+        let savedSearchScope = UserDefaults.standard.string(forKey: Self.searchScopeDefaultsKey) ?? LaunchpadSearchScope.launchNowApps.rawValue
+        self.searchScope = LaunchpadSearchScope(rawValue: savedSearchScope) ?? .launchNowApps
+        let savedBackgroundPreset = UserDefaults.standard.string(forKey: Self.backgroundPresetDefaultsKey) ?? LaunchpadBackgroundPreset.system.rawValue
+        self.backgroundPreset = LaunchpadBackgroundPreset(rawValue: savedBackgroundPreset) ?? .system
+        let savedAppearancePreset = UserDefaults.standard.string(forKey: Self.appearancePresetDefaultsKey) ?? LaunchpadAppearancePreset.glass.rawValue
+        self.appearancePreset = LaunchpadAppearancePreset(rawValue: savedAppearancePreset) ?? .glass
+        if let savedBackgroundOpacity = UserDefaults.standard.object(forKey: Self.backgroundOpacityDefaultsKey) as? Double {
+            self.backgroundOpacity = max(0.2, min(savedBackgroundOpacity, 1.0))
+        }
+        if let savedBackgroundBlur = UserDefaults.standard.object(forKey: Self.backgroundBlurDefaultsKey) as? Double {
+            self.backgroundBlur = max(0.0, min(savedBackgroundBlur, 40.0))
+        }
+        if let savedBackgroundPath = UserDefaults.standard.string(forKey: Self.customBackgroundImagePathDefaultsKey),
+           FileManager.default.fileExists(atPath: savedBackgroundPath) {
+            self.customBackgroundImagePath = savedBackgroundPath
+        } else {
+            self.customBackgroundImagePath = nil
+        }
         let savedCols = UserDefaults.standard.integer(forKey: "gridColumns")
         let savedRows = UserDefaults.standard.integer(forKey: "gridRows")
         self.gridColumns = savedCols == 0 ? 6 : max(3, min(savedCols, 12))
@@ -158,6 +281,7 @@ final class AppStore: ObservableObject {
         self.customApplicationSearchPaths = uniqueCustom
         isInitializingCustomPaths = false
         UserDefaults.standard.set(uniqueCustom, forKey: Self.customSearchPathsDefaultsKey)
+        reloadProfiles()
     }
 
     private func applyGridChangeSideEffects() {
@@ -213,6 +337,299 @@ final class AppStore: ObservableObject {
         stopAutoRescan()
         startAutoRescan()
         scanApplicationsWithOrderPreservation()
+    }
+
+    // MARK: - Profiles
+    func reloadProfiles() {
+        do {
+            let directory = try profilesDirectoryURL()
+            let profileDirectories = try FileManager.default.contentsOfDirectory(
+                at: directory,
+                includingPropertiesForKeys: nil
+            )
+            var loaded: [ProfileSummary] = []
+            for profileDirectory in profileDirectories {
+                let documentURL = profileDocumentURL(in: profileDirectory)
+                guard FileManager.default.fileExists(atPath: documentURL.path) else { continue }
+                let data = try Data(contentsOf: documentURL)
+                let document = try JSONDecoder.profileDecoder.decode(ProfileDocument.self, from: data)
+                loaded.append(document.summary)
+            }
+            profiles = loaded.sorted { $0.updatedAt > $1.updatedAt }
+        } catch {
+            profiles = []
+        }
+    }
+
+    func saveCurrentProfile(named rawName: String) {
+        let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+
+        do {
+            saveAllOrder()
+
+            let now = Date()
+            let summary = ProfileSummary(id: UUID().uuidString, name: name, createdAt: now, updatedAt: now)
+            let directory = try profileDirectoryURL(for: summary.id)
+            if FileManager.default.fileExists(atPath: directory.path) {
+                try FileManager.default.removeItem(at: directory)
+            }
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try copyCurrentProfileAssets(to: directory)
+
+            let document = ProfileDocument(summary: summary, snapshot: makeProfileSnapshot())
+            let data = try JSONEncoder.prettyProfileEncoder.encode(document)
+            try data.write(to: profileDocumentURL(in: directory), options: [.atomic])
+            reloadProfiles()
+        } catch {
+            NSSound.beep()
+        }
+    }
+
+    func renameProfile(id: String, to rawName: String) {
+        let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+
+        do {
+            let directory = try profileDirectoryURL(for: id)
+            let documentURL = profileDocumentURL(in: directory)
+            let data = try Data(contentsOf: documentURL)
+            var document = try JSONDecoder.profileDecoder.decode(ProfileDocument.self, from: data)
+            document.summary.name = name
+            document.summary.updatedAt = Date()
+            let encoded = try JSONEncoder.prettyProfileEncoder.encode(document)
+            try encoded.write(to: documentURL, options: [.atomic])
+            reloadProfiles()
+        } catch {
+            NSSound.beep()
+        }
+    }
+
+    func deleteProfile(id: String) {
+        do {
+            let directory = try profileDirectoryURL(for: id)
+            if FileManager.default.fileExists(atPath: directory.path) {
+                try FileManager.default.removeItem(at: directory)
+            }
+            reloadProfiles()
+        } catch {
+            NSSound.beep()
+        }
+    }
+
+    func applyProfile(id: String) {
+        do {
+            let directory = try profileDirectoryURL(for: id)
+            let data = try Data(contentsOf: profileDocumentURL(in: directory))
+            var document = try JSONDecoder.profileDecoder.decode(ProfileDocument.self, from: data)
+            try restoreProfileAssets(from: directory, snapshot: document.snapshot)
+            applyProfileSnapshot(document.snapshot)
+
+            document.summary.updatedAt = Date()
+            let encoded = try JSONEncoder.prettyProfileEncoder.encode(document)
+            try encoded.write(to: profileDocumentURL(in: directory), options: [.atomic])
+            reloadProfiles()
+        } catch {
+            NSSound.beep()
+        }
+    }
+
+    private func makeProfileSnapshot() -> ProfileSnapshot {
+        ProfileSnapshot(
+            settings: ProfileSettings(
+                isFullscreenMode: isFullscreenMode,
+                scrollSensitivity: scrollSensitivity,
+                gridColumns: gridColumns,
+                gridRows: gridRows,
+                customApplicationSearchPaths: customApplicationSearchPaths,
+                language: LocalizationManager.shared.language.rawValue,
+                keyboardShortcut: KeyboardShortcutManager.shared.preset.rawValue,
+                searchScope: searchScope.rawValue,
+                appearancePreset: appearancePreset.rawValue,
+                backgroundPreset: backgroundPreset.rawValue,
+                backgroundOpacity: backgroundOpacity,
+                backgroundBlur: backgroundBlur,
+                customBackgroundImagePath: customBackgroundImagePath
+            ),
+            items: items.map(profileItemSnapshot(for:)),
+            customAppNames: CustomAppNameManager.shared.exportNames(),
+            customAppIconFiles: CustomAppIconManager.shared.exportIconFiles(),
+            customFolderIconFiles: CustomFolderIconManager.shared.exportIconFiles()
+        )
+    }
+
+    private func profileItemSnapshot(for item: LaunchpadItem) -> ProfileItem {
+        switch item {
+        case .app(let app):
+            return ProfileItem(kind: "app", appPath: app.url.path, folderId: nil, folderName: nil, folderAppPaths: [], emptyId: nil)
+        case .folder(let folder):
+            return ProfileItem(kind: "folder", appPath: nil, folderId: folder.id, folderName: folder.name, folderAppPaths: folder.apps.map { $0.url.path }, emptyId: nil)
+        case .empty(let id):
+            return ProfileItem(kind: "empty", appPath: nil, folderId: nil, folderName: nil, folderAppPaths: [], emptyId: id)
+        }
+    }
+
+    private func applyProfileSnapshot(_ snapshot: ProfileSnapshot) {
+        let settings = snapshot.settings
+        isFullscreenMode = settings.isFullscreenMode
+        scrollSensitivity = settings.scrollSensitivity
+        gridColumns = settings.gridColumns
+        gridRows = settings.gridRows
+        customApplicationSearchPaths = settings.customApplicationSearchPaths
+        LocalizationManager.shared.language = AppLanguage(rawValue: settings.language) ?? .system
+        if let keyboardPreset = KeyboardShortcutPreset(rawValue: settings.keyboardShortcut) {
+            KeyboardShortcutManager.shared.setPreset(keyboardPreset)
+        }
+        if let rawSearchScope = settings.searchScope,
+           let importedSearchScope = LaunchpadSearchScope(rawValue: rawSearchScope) {
+            searchScope = importedSearchScope
+        }
+        if let preset = LaunchpadAppearancePreset(rawValue: settings.appearancePreset) {
+            appearancePreset = preset
+        }
+        applyImportedBackgroundSettings(
+            presetRawValue: settings.backgroundPreset,
+            appearancePresetRawValue: settings.appearancePreset,
+            opacity: settings.backgroundOpacity,
+            blur: settings.backgroundBlur,
+            customImagePath: settings.customBackgroundImagePath
+        )
+
+        var restoredFolders: [FolderInfo] = []
+        var folderById: [String: FolderInfo] = [:]
+        for item in snapshot.items where item.kind == "folder" {
+            guard let folderId = item.folderId else { continue }
+            let folderApps = item.folderAppPaths.compactMap(appInfoIfAvailable)
+            let folder = FolderInfo(
+                id: folderId,
+                name: item.folderName ?? LocalizationManager.shared.text(.untitledFolder),
+                apps: folderApps
+            )
+            restoredFolders.append(folder)
+            folderById[folderId] = folder
+        }
+
+        let restoredItems: [LaunchpadItem] = snapshot.items.compactMap { item in
+            switch item.kind {
+            case "app":
+                guard let path = item.appPath, let app = appInfoIfAvailable(path: path) else { return nil }
+                return .app(app)
+            case "folder":
+                guard let folderId = item.folderId, let folder = folderById[folderId] else { return nil }
+                return .folder(folder)
+            case "empty":
+                return .empty(item.emptyId ?? UUID().uuidString)
+            default:
+                return nil
+            }
+        }
+
+        folders = restoredFolders
+        items = restoredItems
+        apps = uniqueApps(from: restoredItems)
+        openFolder = nil
+        currentPage = 0
+        searchText = ""
+        hasAppliedOrderFromStore = true
+        triggerFolderUpdate()
+        triggerGridRefresh()
+        refreshCacheAfterFolderOperation()
+        saveAllOrder()
+    }
+
+    private func appInfoIfAvailable(path: String) -> AppInfo? {
+        let url = URL(fileURLWithPath: path)
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        return appInfo(from: url)
+    }
+
+    private func uniqueApps(from items: [LaunchpadItem]) -> [AppInfo] {
+        var result: [AppInfo] = []
+        var seen = Set<String>()
+        for item in items {
+            switch item {
+            case .app(let app):
+                if seen.insert(app.url.path).inserted { result.append(app) }
+            case .folder(let folder):
+                for app in folder.apps where seen.insert(app.url.path).inserted {
+                    result.append(app)
+                }
+            case .empty:
+                break
+            }
+        }
+        return result
+    }
+
+    private func copyCurrentProfileAssets(to profileDirectory: URL) throws {
+        try copyDirectoryIfPresent(
+            from: CustomAppIconManager.shared.exportIconsDirectoryURL(),
+            to: profileDirectory.appendingPathComponent("CustomIcons", isDirectory: true)
+        )
+        try copyDirectoryIfPresent(
+            from: CustomFolderIconManager.shared.exportIconsDirectoryURL(),
+            to: profileDirectory.appendingPathComponent("CustomFolderIcons", isDirectory: true)
+        )
+        try copyDirectoryIfPresent(
+            from: try backgroundDirectoryURL(),
+            to: profileDirectory.appendingPathComponent("Backgrounds", isDirectory: true)
+        )
+    }
+
+    private func restoreProfileAssets(from profileDirectory: URL, snapshot: ProfileSnapshot) throws {
+        try CustomAppIconManager.shared.replaceIcons(
+            with: snapshot.customAppIconFiles,
+            from: profileDirectory.appendingPathComponent("CustomIcons", isDirectory: true)
+        )
+        try CustomFolderIconManager.shared.replaceIcons(
+            with: snapshot.customFolderIconFiles,
+            from: profileDirectory.appendingPathComponent("CustomFolderIcons", isDirectory: true)
+        )
+        CustomAppNameManager.shared.replaceNames(snapshot.customAppNames)
+
+        let backgroundDestination = try backgroundDirectoryURL()
+        if FileManager.default.fileExists(atPath: backgroundDestination.path) {
+            try FileManager.default.removeItem(at: backgroundDestination)
+        }
+        try copyDirectoryIfPresent(
+            from: profileDirectory.appendingPathComponent("Backgrounds", isDirectory: true),
+            to: backgroundDestination
+        )
+    }
+
+    private func copyDirectoryIfPresent(from source: URL, to destination: URL) throws {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: source.path) else { return }
+        if fm.fileExists(atPath: destination.path) {
+            try fm.removeItem(at: destination)
+        }
+        try fm.copyItem(at: source, to: destination)
+    }
+
+    private func profilesDirectoryURL() throws -> URL {
+        let directory = try appSupportDirectoryURL().appendingPathComponent("Profiles", isDirectory: true)
+        if !FileManager.default.fileExists(atPath: directory.path) {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        }
+        return directory
+    }
+
+    private func profileDirectoryURL(for id: String) throws -> URL {
+        try profilesDirectoryURL().appendingPathComponent(id, isDirectory: true)
+    }
+
+    private func profileDocumentURL(in directory: URL) -> URL {
+        directory.appendingPathComponent("Profile.json", conformingTo: .json)
+    }
+
+    private func appSupportDirectoryURL() throws -> URL {
+        let fm = FileManager.default
+        let appSupport = try fm.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+        let directory = appSupport.appendingPathComponent("LaunchNow", isDirectory: true)
+        if !fm.fileExists(atPath: directory.path) {
+            try fm.createDirectory(at: directory, withIntermediateDirectories: true)
+        }
+        return directory
     }
     
     func configure(modelContext: ModelContext) {
@@ -1005,6 +1422,124 @@ final class AppStore: ObservableObject {
                 NSSound.beep()
             }
         }
+    }
+
+    // MARK: - Custom Background
+    func presentChooseBackgroundImagePanel() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.image]
+        panel.prompt = LocalizationManager.shared.text(.choose)
+        panel.message = LocalizationManager.shared.text(.chooseBackgroundImage)
+        if AppPanelPresenter.runModal(panel) == .OK, let imageURL = panel.url {
+            do {
+                try setCustomBackgroundImage(from: imageURL)
+            } catch {
+                NSSound.beep()
+            }
+        }
+    }
+
+    func resetCustomBackgroundImage() {
+        if let url = customBackgroundImageURL {
+            try? FileManager.default.removeItem(at: url)
+        }
+        customBackgroundImagePath = nil
+        if backgroundPreset == .customImage {
+            backgroundPreset = .system
+        }
+    }
+
+    func applyImportedBackgroundSettings(
+        presetRawValue: String?,
+        appearancePresetRawValue: String?,
+        opacity: Double?,
+        blur: Double?,
+        customImagePath: String?
+    ) {
+        if let appearancePresetRawValue,
+           let preset = LaunchpadAppearancePreset(rawValue: appearancePresetRawValue) {
+            appearancePreset = preset
+        }
+        if let presetRawValue,
+           let preset = LaunchpadBackgroundPreset(rawValue: presetRawValue) {
+            backgroundPreset = preset
+        }
+        if let opacity {
+            backgroundOpacity = opacity
+        }
+        if let blur {
+            backgroundBlur = blur
+        }
+        if let customImagePath,
+           FileManager.default.fileExists(atPath: customImagePath) {
+            customBackgroundImagePath = customImagePath
+        } else if let importedImageURL = try? firstBackgroundImageURL() {
+            customBackgroundImagePath = importedImageURL.path
+        }
+    }
+
+    func applyAppearancePreset(_ preset: LaunchpadAppearancePreset) {
+        appearancePreset = preset
+
+        switch preset {
+        case .glass:
+            backgroundPreset = .system
+            backgroundOpacity = 1.0
+            backgroundBlur = 0
+        case .dark:
+            backgroundPreset = .graphite
+            backgroundOpacity = 0.9
+            backgroundBlur = 10
+        case .light:
+            backgroundPreset = .aurora
+            backgroundOpacity = 0.82
+            backgroundBlur = 4
+        case .compact:
+            backgroundPreset = .system
+            backgroundOpacity = 1.0
+            backgroundBlur = 0
+        case .classicLaunchpad:
+            isFullscreenMode = true
+            backgroundPreset = .aurora
+            backgroundOpacity = 0.92
+            backgroundBlur = 14
+        }
+    }
+
+    private func setCustomBackgroundImage(from sourceURL: URL) throws {
+        let destinationDirectory = try backgroundDirectoryURL()
+        let fileExtension = sourceURL.pathExtension.isEmpty ? "png" : sourceURL.pathExtension
+        let destinationURL = destinationDirectory.appendingPathComponent("background.\(fileExtension)")
+
+        let fm = FileManager.default
+        let existingFiles = (try? fm.contentsOfDirectory(at: destinationDirectory, includingPropertiesForKeys: nil)) ?? []
+        for file in existingFiles {
+            try? fm.removeItem(at: file)
+        }
+        try fm.copyItem(at: sourceURL, to: destinationURL)
+        customBackgroundImagePath = destinationURL.path
+        backgroundPreset = .customImage
+    }
+
+    private func backgroundDirectoryURL() throws -> URL {
+        let fm = FileManager.default
+        let appSupport = try fm.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+        let directory = appSupport
+            .appendingPathComponent("LaunchNow", isDirectory: true)
+            .appendingPathComponent("Backgrounds", isDirectory: true)
+        if !fm.fileExists(atPath: directory.path) {
+            try fm.createDirectory(at: directory, withIntermediateDirectories: true)
+        }
+        return directory
+    }
+
+    private func firstBackgroundImageURL() throws -> URL? {
+        let directory = try backgroundDirectoryURL()
+        return try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+            .first { $0.lastPathComponent.hasPrefix("background.") }
     }
 
     func resetCustomFolderIcon(for folder: FolderInfo) {
@@ -1962,5 +2497,22 @@ final class AppStore: ObservableObject {
         } catch {
             return (false, "JSON解析失败: \(error.localizedDescription)")
         }
+    }
+}
+
+private extension JSONEncoder {
+    static var prettyProfileEncoder: JSONEncoder {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        return encoder
+    }
+}
+
+private extension JSONDecoder {
+    static var profileDecoder: JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
     }
 }
