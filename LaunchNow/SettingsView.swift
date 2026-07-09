@@ -61,6 +61,7 @@ struct SettingsView: View {
     // Sheet / alert states
     @State private var showResetConfirm = false
     @State private var showResetAppsConfirm = false
+    @State private var showAutoOrganizeConfirm = false
     @State private var isImportSheetPresented = false
     @State private var isRemoveSheetPresented = false // kept for compatibility (not used in new UI)
     @State private var showUninstallSheet = false
@@ -144,6 +145,12 @@ struct SettingsView: View {
             Button(localization.text(.cancel), role: .cancel) {}
         } message: {
             Text(localization.text(.confirmClearAppsMessage))
+        }
+        .alert(localization.text(.confirmAutoOrganize), isPresented: $showAutoOrganizeConfirm) {
+            Button(localization.text(.organize)) { appStore.autoOrganizeApps() }
+            Button(localization.text(.cancel), role: .cancel) {}
+        } message: {
+            Text(localization.text(.confirmAutoOrganizeMessage))
         }
     }
 
@@ -583,9 +590,21 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.bordered)
                 .tint(.red)
+
+                Button {
+                    showAutoOrganizeConfirm = true
+                } label: {
+                    Label(localization.text(.autoOrganizeApps), systemImage: "square.grid.3x3.fill")
+                }
+                .buttonStyle(.bordered)
+                .disabled(allAppsInLaunchpad.isEmpty)
             }
 
             Text(localization.text(.removeAppsDescription))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            Text(localization.text(.autoOrganizeAppsDescription))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
 

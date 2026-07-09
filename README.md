@@ -21,6 +21,7 @@ LaunchNow is a polished fork of [ggkevinnnn/LaunchNow](https://github.com/ggkevi
 - **Built-in updates** with background update checks and release downloads from GitHub.
 - **Local profiles** to save, rename, apply, and delete multiple LaunchNow layouts and appearance setups.
 - **Configurable search scope** to search either LaunchNow apps only or all applications found on the Mac.
+- **Auto-organize** to group LaunchNow apps into category folders such as Developer, Design, Games, Utilities, and Productivity.
 
 ## Quick Start
 
@@ -33,7 +34,8 @@ LaunchNow is a polished fork of [ggkevinnnn/LaunchNow](https://github.com/ggkevi
 7. Drag apps to reorder or group them into folders on the fly.
 8. Right-click an app or folder to rename it, change its icon, show it in Finder, or remove it from LaunchNow.
 9. Save layouts in Settings → Data → Profiles so you can switch between work, personal, or gaming setups.
-10. Need a fresh slate? Use Reset Apps to clear the LaunchNow grid. Your apps on disk stay untouched.
+10. Use Settings → App Management → Auto-organize Apps to create category folders automatically.
+11. Need a fresh slate? Use Reset Apps to clear the LaunchNow grid. Your apps on disk stay untouched.
 
 ## Languages
 

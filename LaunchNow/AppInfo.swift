@@ -25,6 +25,10 @@ struct AppInfo: Identifiable, Equatable, Hashable {
         return AppInfo(name: name, icon: icon, url: url)
     }
 
+    var bundleCategoryIdentifier: String? {
+        Bundle(url: url)?.object(forInfoDictionaryKey: "LSApplicationCategoryType") as? String
+    }
+
     // MARK: - 获取本地化应用名
     private static func localizedAppName(for url: URL) -> String {
         guard let bundle = Bundle(url: url) else {

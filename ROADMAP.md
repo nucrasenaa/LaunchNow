@@ -28,7 +28,7 @@ Use this checklist to track future features. We can work through them one by one
 - [x] 8. Search Actions
   - Let users choose whether search covers LaunchNow apps or all apps on the Mac, while exposing contextual actions in search results.
 
-- [ ] 9. Auto-organize Apps
+- [x] 9. Auto-organize Apps
   - Group apps automatically by category, such as Developer, Design, Games, Utilities, and Productivity.
 
 - [x] 10. Change Background
@@ -45,4 +45,4 @@ Use this checklist to track future features. We can work through them one by one
 - [x] Search Actions
 - [x] Theme / Appearance Presets
 - [x] Backup / Restore Profiles
-- [ ] Auto-organize Apps
+- [x] Auto-organize Apps

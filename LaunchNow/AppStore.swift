@@ -11,6 +11,45 @@ enum LaunchpadSearchScope: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+private enum AutoOrganizeCategory: Int, CaseIterable {
+    case developer
+    case design
+    case games
+    case utilities
+    case productivity
+    case education
+    case entertainment
+    case music
+    case photoVideo
+    case social
+    case finance
+    case health
+    case lifestyle
+    case reference
+    case other
+
+    var title: String {
+        let localization = LocalizationManager.shared
+        switch self {
+        case .developer: return localization.text(.categoryDeveloper)
+        case .design: return localization.text(.categoryDesign)
+        case .games: return localization.text(.categoryGames)
+        case .utilities: return localization.text(.categoryUtilities)
+        case .productivity: return localization.text(.categoryProductivity)
+        case .education: return localization.text(.categoryEducation)
+        case .entertainment: return localization.text(.categoryEntertainment)
+        case .music: return localization.text(.categoryMusic)
+        case .photoVideo: return localization.text(.categoryPhotoVideo)
+        case .social: return localization.text(.categorySocial)
+        case .finance: return localization.text(.categoryFinance)
+        case .health: return localization.text(.categoryHealth)
+        case .lifestyle: return localization.text(.categoryLifestyle)
+        case .reference: return localization.text(.categoryReference)
+        case .other: return localization.text(.categoryOther)
+        }
+    }
+}
+
 final class AppStore: ObservableObject {
     struct ProfileSummary: Identifiable, Codable, Equatable {
         let id: String
@@ -864,6 +903,124 @@ final class AppStore: ObservableObject {
         cacheManager.clearAllCaches()
         triggerFolderUpdate()
         triggerGridRefresh()
+    }
+
+    func autoOrganizeApps() {
+        let allApps = uniqueApps(from: items)
+        guard !allApps.isEmpty else { return }
+
+        var existingFoldersByName: [String: FolderInfo] = [:]
+        for folder in folders where existingFoldersByName[folder.name] == nil {
+            existingFoldersByName[folder.name] = folder
+        }
+        var grouped: [AutoOrganizeCategory: [AppInfo]] = [:]
+        for app in allApps {
+            grouped[autoOrganizeCategory(for: app), default: []].append(app)
+        }
+
+        var organizedItems: [LaunchpadItem] = []
+        var organizedFolders: [FolderInfo] = []
+        var freeApps: [AppInfo] = []
+
+        for category in AutoOrganizeCategory.allCases {
+            guard var categoryApps = grouped[category], !categoryApps.isEmpty else { continue }
+            categoryApps.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+
+            if categoryApps.count == 1, let app = categoryApps.first {
+                organizedItems.append(.app(app))
+                freeApps.append(app)
+                continue
+            }
+
+            let title = category.title
+            let folder: FolderInfo
+            if let existing = existingFoldersByName[title] {
+                folder = FolderInfo(id: existing.id, name: existing.name, apps: categoryApps, createdAt: existing.createdAt)
+            } else {
+                folder = FolderInfo(name: title, apps: categoryApps)
+            }
+            organizedFolders.append(folder)
+            organizedItems.append(.folder(folder))
+        }
+
+        let ipp = itemsPerPage
+        if !organizedItems.isEmpty {
+            let remainder = organizedItems.count % ipp
+            if remainder != 0 {
+                for _ in 0..<(ipp - remainder) {
+                    organizedItems.append(.empty(UUID().uuidString))
+                }
+            }
+        }
+
+        openFolder = nil
+        folders = organizedFolders
+        items = organizedItems
+        apps = freeApps
+        currentPage = 0
+        searchText = ""
+        saveAllOrder()
+        triggerFolderUpdate()
+        triggerGridRefresh()
+        refreshCacheAfterFolderOperation()
+    }
+
+    private func autoOrganizeCategory(for app: AppInfo) -> AutoOrganizeCategory {
+        let identifier = app.bundleCategoryIdentifier ?? ""
+        switch identifier {
+        case "public.app-category.developer-tools":
+            return .developer
+        case "public.app-category.graphics-design":
+            return .design
+        case "public.app-category.games":
+            return .games
+        case "public.app-category.utilities":
+            return .utilities
+        case "public.app-category.productivity", "public.app-category.business":
+            return .productivity
+        case "public.app-category.education":
+            return .education
+        case "public.app-category.entertainment", "public.app-category.news", "public.app-category.sports":
+            return .entertainment
+        case "public.app-category.music":
+            return .music
+        case "public.app-category.photography", "public.app-category.video":
+            return .photoVideo
+        case "public.app-category.social-networking":
+            return .social
+        case "public.app-category.finance":
+            return .finance
+        case "public.app-category.healthcare-fitness", "public.app-category.medical":
+            return .health
+        case "public.app-category.lifestyle", "public.app-category.travel", "public.app-category.weather":
+            return .lifestyle
+        case "public.app-category.reference":
+            return .reference
+        default:
+            return fallbackAutoOrganizeCategory(for: app)
+        }
+    }
+
+    private func fallbackAutoOrganizeCategory(for app: AppInfo) -> AutoOrganizeCategory {
+        let haystack = "\(app.name) \(app.url.path)".lowercased()
+        let developerHints = ["xcode", "terminal", "iterm", "visual studio", "vscode", "cursor", "android studio", "docker", "postman", "github", "sourcetree", "fork", "tower", "simulator", "code"]
+        let designHints = ["figma", "sketch", "adobe", "photoshop", "illustrator", "indesign", "canva", "affinity", "principle"]
+        let gameHints = ["steam", "epic games", "battle.net", "minecraft", "game"]
+        let utilityHints = ["clean", "unarchiver", "istat", "raycast", "alfred", "magnet", "rectangle", "bartender", "karabiner", "utility"]
+        let productivityHints = ["notion", "obsidian", "things", "todoist", "calendar", "mail", "notes", "numbers", "pages", "keynote", "word", "excel", "powerpoint", "slack", "zoom", "teams"]
+        let musicHints = ["music", "spotify", "garageband", "logic", "audacity"]
+        let photoVideoHints = ["photo", "camera", "final cut", "imovie", "premiere", "davinci", "lightroom", "capture"]
+        let socialHints = ["discord", "telegram", "line", "whatsapp", "messenger", "twitter", "x.app"]
+
+        if developerHints.contains(where: haystack.contains) { return .developer }
+        if designHints.contains(where: haystack.contains) { return .design }
+        if gameHints.contains(where: haystack.contains) { return .games }
+        if utilityHints.contains(where: haystack.contains) { return .utilities }
+        if productivityHints.contains(where: haystack.contains) { return .productivity }
+        if musicHints.contains(where: haystack.contains) { return .music }
+        if photoVideoHints.contains(where: haystack.contains) { return .photoVideo }
+        if socialHints.contains(where: haystack.contains) { return .social }
+        return .other
     }
 
     func scanApplications(loadPersistedOrder: Bool = true) {

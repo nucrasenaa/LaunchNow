@@ -132,6 +132,11 @@ enum L10nKey: String {
     case itemsPerPage
     case addApp
     case resetApp
+    case autoOrganizeApps
+    case autoOrganizeAppsDescription
+    case confirmAutoOrganize
+    case confirmAutoOrganizeMessage
+    case organize
     case open
     case showInFinder
     case renameApp
@@ -211,6 +216,21 @@ enum L10nKey: String {
     case noAppsFound
     case folderName
     case untitledFolder
+    case categoryDeveloper
+    case categoryDesign
+    case categoryGames
+    case categoryUtilities
+    case categoryProductivity
+    case categoryEducation
+    case categoryEntertainment
+    case categoryMusic
+    case categoryPhotoVideo
+    case categorySocial
+    case categoryFinance
+    case categoryHealth
+    case categoryLifestyle
+    case categoryReference
+    case categoryOther
 }
 
 final class LocalizationManager: ObservableObject {
@@ -328,6 +348,11 @@ final class LocalizationManager: ObservableObject {
             .itemsPerPage: "Items per page",
             .addApp: "Add App",
             .resetApp: "Reset App",
+            .autoOrganizeApps: "Auto-organize Apps",
+            .autoOrganizeAppsDescription: "Group the apps currently in LaunchNow into category folders.",
+            .confirmAutoOrganize: "Auto-organize apps?",
+            .confirmAutoOrganizeMessage: "This will rearrange your current LaunchNow layout into category folders. Your apps on disk are not affected.",
+            .organize: "Organize",
             .open: "Open",
             .showInFinder: "Show in Finder",
             .renameApp: "Rename",
@@ -406,7 +431,22 @@ final class LocalizationManager: ObservableObject {
             .search: "Search",
             .noAppsFound: "No apps found",
             .folderName: "Folder Name",
-            .untitledFolder: "Untitled"
+            .untitledFolder: "Untitled",
+            .categoryDeveloper: "Developer",
+            .categoryDesign: "Design",
+            .categoryGames: "Games",
+            .categoryUtilities: "Utilities",
+            .categoryProductivity: "Productivity",
+            .categoryEducation: "Education",
+            .categoryEntertainment: "Entertainment",
+            .categoryMusic: "Music",
+            .categoryPhotoVideo: "Photo & Video",
+            .categorySocial: "Social",
+            .categoryFinance: "Finance",
+            .categoryHealth: "Health",
+            .categoryLifestyle: "Lifestyle",
+            .categoryReference: "Reference",
+            .categoryOther: "Other"
         ],
         .thai: [
             .general: "ทั่วไป",
@@ -476,6 +516,11 @@ final class LocalizationManager: ObservableObject {
             .itemsPerPage: "รายการต่อหน้า",
             .addApp: "เพิ่มแอป",
             .resetApp: "รีเซ็ตแอป",
+            .autoOrganizeApps: "จัดกลุ่มแอปอัตโนมัติ",
+            .autoOrganizeAppsDescription: "จัดกลุ่มแอปที่อยู่ใน LaunchNow ตอนนี้เข้าโฟลเดอร์ตามหมวดหมู่",
+            .confirmAutoOrganize: "จัดกลุ่มแอปอัตโนมัติ?",
+            .confirmAutoOrganizeMessage: "ระบบจะจัดเลย์เอาต์ LaunchNow ปัจจุบันใหม่เป็นโฟลเดอร์ตามหมวดหมู่ โดยไม่กระทบแอปจริงในเครื่อง",
+            .organize: "จัดกลุ่ม",
             .open: "เปิด",
             .showInFinder: "แสดงใน Finder",
             .renameApp: "เปลี่ยนชื่อ",
@@ -554,7 +599,22 @@ final class LocalizationManager: ObservableObject {
             .search: "ค้นหา",
             .noAppsFound: "ไม่พบแอป",
             .folderName: "ชื่อโฟลเดอร์",
-            .untitledFolder: "ไม่มีชื่อ"
+            .untitledFolder: "ไม่มีชื่อ",
+            .categoryDeveloper: "Developer",
+            .categoryDesign: "Design",
+            .categoryGames: "Games",
+            .categoryUtilities: "Utilities",
+            .categoryProductivity: "Productivity",
+            .categoryEducation: "Education",
+            .categoryEntertainment: "Entertainment",
+            .categoryMusic: "Music",
+            .categoryPhotoVideo: "Photo & Video",
+            .categorySocial: "Social",
+            .categoryFinance: "Finance",
+            .categoryHealth: "Health",
+            .categoryLifestyle: "Lifestyle",
+            .categoryReference: "Reference",
+            .categoryOther: "Other"
         ],
         .japanese: [
             .general: "一般", .appearance: "表示", .gridLayout: "グリッドレイアウト", .appManagement: "アプリ管理", .appSources: "アプリの場所", .data: "データ", .about: "情報",
