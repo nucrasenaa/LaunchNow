@@ -10,7 +10,7 @@ Use this checklist to track future features. We can work through them one by one
 - [x] 2. Custom Folder Icon
   - Let users choose a custom icon for folders, matching the custom app icon flow.
 
-- [ ] 3. Right-click Context Menu
+- [x] 3. Right-click Context Menu
   - Add contextual actions for apps and folders: Open, Show in Finder, Change Icon, Reset Icon, Rename, Remove.
 
 - [ ] 4. Drag App from Finder into LaunchNow
@@ -39,7 +39,7 @@ Use this checklist to track future features. We can work through them one by one
 
 ## Suggested Order
 
-- [ ] Right-click Context Menu
+- [x] Right-click Context Menu
 - [ ] Rename App Display Name
 - [ ] Change Background
 - [ ] Custom Folder Icon

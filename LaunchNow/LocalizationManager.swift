@@ -102,10 +102,13 @@ enum L10nKey: String {
     case itemsPerPage
     case addApp
     case resetApp
+    case open
+    case showInFinder
     case renameApp
     case resetName
     case save
     case renameAppDescription
+    case renameFolderDescription
     case changeIcon
     case resetIcon
     case chooseCustomIcon
@@ -256,10 +259,13 @@ final class LocalizationManager: ObservableObject {
             .itemsPerPage: "Items per page",
             .addApp: "Add App",
             .resetApp: "Reset App",
+            .open: "Open",
+            .showInFinder: "Show in Finder",
             .renameApp: "Rename",
             .resetName: "Reset Name",
             .save: "Save",
             .renameAppDescription: "Set a custom display name for this app. The real app bundle is not renamed.",
+            .renameFolderDescription: "Set a custom display name for this folder.",
             .changeIcon: "Change Icon",
             .resetIcon: "Reset Icon",
             .chooseCustomIcon: "Choose an image to use as this app icon.",
@@ -362,10 +368,13 @@ final class LocalizationManager: ObservableObject {
             .itemsPerPage: "รายการต่อหน้า",
             .addApp: "เพิ่มแอป",
             .resetApp: "รีเซ็ตแอป",
+            .open: "เปิด",
+            .showInFinder: "แสดงใน Finder",
             .renameApp: "เปลี่ยนชื่อ",
             .resetName: "รีเซ็ตชื่อ",
             .save: "บันทึก",
             .renameAppDescription: "ตั้งชื่อที่แสดงใน LaunchNow เท่านั้น โดยไม่เปลี่ยนชื่อไฟล์แอปจริง",
+            .renameFolderDescription: "ตั้งชื่อที่แสดงสำหรับโฟลเดอร์นี้",
             .changeIcon: "เปลี่ยนไอคอน",
             .resetIcon: "รีเซ็ตไอคอน",
             .chooseCustomIcon: "เลือกรูปภาพเพื่อใช้เป็นไอคอนของแอปนี้",
