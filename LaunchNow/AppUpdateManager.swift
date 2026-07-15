@@ -57,11 +57,12 @@ final class AppUpdateManager: ObservableObject {
 
         Task {
             try? await Task.sleep(for: .seconds(10))
-            await checkAutomaticallyIfNeeded()
+            await prepareNotificationAuthorizationIfNeeded()
+            await checkAutomatically(force: true)
         }
 
         automaticUpdateTimer = Timer.scheduledTimer(withTimeInterval: automaticCheckInterval, repeats: true) { [weak self] _ in
-            Task { await self?.checkAutomaticallyIfNeeded() }
+            Task { await self?.checkAutomatically(force: false) }
         }
     }
 
@@ -112,13 +113,13 @@ final class AppUpdateManager: ObservableObject {
         }
     }
 
-    private func checkAutomaticallyIfNeeded() async {
+    private func checkAutomatically(force: Bool) async {
         guard isAutomaticCheckEnabled else { return }
         guard !isAutomaticUpdateRunning else { return }
 
         let now = Date()
         let lastCheck = UserDefaults.standard.object(forKey: lastAutomaticCheckKey) as? Date ?? .distantPast
-        guard now.timeIntervalSince(lastCheck) >= automaticCheckInterval else { return }
+        guard force || now.timeIntervalSince(lastCheck) >= automaticCheckInterval else { return }
 
         isAutomaticUpdateRunning = true
         UserDefaults.standard.set(now, forKey: lastAutomaticCheckKey)
@@ -142,17 +143,20 @@ final class AppUpdateManager: ObservableObject {
         }
     }
 
+    private func prepareNotificationAuthorizationIfNeeded() async {
+        let center = UNUserNotificationCenter.current()
+        let settings = await center.notificationSettings()
+        guard settings.authorizationStatus == .notDetermined else { return }
+        _ = try? await center.requestAuthorization(options: [.alert, .sound])
+    }
+
     private func notifyUpdateAvailableIfNeeded(_ update: AppUpdateInfo) async {
         let defaults = UserDefaults.standard
         guard defaults.string(forKey: lastNotifiedVersionKey) != update.version else { return }
 
         let center = UNUserNotificationCenter.current()
-        let granted = await withCheckedContinuation { continuation in
-            center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
-                continuation.resume(returning: granted)
-            }
-        }
-        guard granted else { return }
+        let settings = await center.notificationSettings()
+        guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else { return }
 
         let content = UNMutableNotificationContent()
         content.title = LocalizationManager.shared.text(.updateNotificationTitleFormat, update.version)
