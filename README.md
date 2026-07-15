@@ -1,6 +1,6 @@
 # LaunchNow
 
-![LaunchNow grid view](https://github.com/user-attachments/assets/b6cacb58-0592-4c41-be56-ea8934b09f62)
+![LaunchNow 1.5.2 app grid](https://raw.githubusercontent.com/nucrasenaa/LaunchNowNext/main/public/image/current/launch-now-1.jpg)
 [Download LaunchNow](https://launchnow.gooxsoft.com/) · Alternative Launchpad for macOS Tahoe
 
 LaunchNow is a polished fork of [ggkevinnnn/LaunchNow](https://github.com/ggkevinnnn/LaunchNow) that keeps your launchpad fast, organized, and fully under your control.
@@ -46,6 +46,11 @@ LaunchNow currently supports English, Thai, Japanese, Korean, Simplified Chinese
 
 ## Gallery
 
-![LaunchNow grid view](https://github.com/user-attachments/assets/b6cacb58-0592-4c41-be56-ea8934b09f62)
-![Settings layout](https://github.com/user-attachments/assets/4286bc71-01e3-4def-949f-0d37796ea282)
-![App management tools](https://github.com/user-attachments/assets/6b690860-bd8f-41e9-bada-414da4f323cb)
+![LaunchNow app grid and search](https://raw.githubusercontent.com/nucrasenaa/LaunchNowNext/main/public/image/current/launch-now-1.jpg)
+![LaunchNow general settings](https://raw.githubusercontent.com/nucrasenaa/LaunchNowNext/main/public/image/current/launch-now-2.jpg)
+![LaunchNow appearance settings](https://raw.githubusercontent.com/nucrasenaa/LaunchNowNext/main/public/image/current/launch-now-3.jpg)
+![LaunchNow grid layout settings](https://raw.githubusercontent.com/nucrasenaa/LaunchNowNext/main/public/image/current/launch-now-4.jpg)
+![LaunchNow app management](https://raw.githubusercontent.com/nucrasenaa/LaunchNowNext/main/public/image/current/launch-now-5.jpg)
+![LaunchNow app sources](https://raw.githubusercontent.com/nucrasenaa/LaunchNowNext/main/public/image/current/launch-now-6.jpg)
+![LaunchNow profiles and cloud backup](https://raw.githubusercontent.com/nucrasenaa/LaunchNowNext/main/public/image/current/launch-now-7.jpg)
+![LaunchNow automatic updates](https://raw.githubusercontent.com/nucrasenaa/LaunchNowNext/main/public/image/current/launch-now-8.jpg)
