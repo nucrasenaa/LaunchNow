@@ -57,6 +57,7 @@ struct SettingsView: View {
     @ObservedObject var appStore: AppStore
     @ObservedObject private var localization = LocalizationManager.shared
     @ObservedObject private var keyboardShortcutManager = KeyboardShortcutManager.shared
+    @ObservedObject private var updateManager = AppUpdateManager.shared
 
     // Sheet / alert states
     @State private var showResetConfirm = false
@@ -72,6 +73,7 @@ struct SettingsView: View {
     @State private var updateStatusMessage: String?
     @State private var profileName: String = ""
     @State private var renamingProfileID: String?
+    @State private var cloudBackupStatusMessage: String?
 
     // UI state
     @State private var selected: SettingsSection = .general
@@ -883,6 +885,87 @@ struct SettingsView: View {
 
             Divider().padding(.vertical, 4)
 
+            VStack(alignment: .leading, spacing: 10) {
+                Text(localization.text(.cloudBackup))
+                    .font(.headline)
+                Text(localization.text(.cloudBackupDescription))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+
+                if let cloudBackupFolderPath = appStore.cloudBackupFolderPath {
+                    Label(cloudBackupFolderPath, systemImage: "folder")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .frame(maxWidth: 560, alignment: .leading)
+                } else {
+                    Text(localization.text(.noCloudFolder))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                if let lastCloudBackupAt = appStore.lastCloudBackupAt {
+                    Text(localization.text(.lastCloudBackupFormat, profileDateFormatter.string(from: lastCloudBackupAt)))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                if let cloudBackupStatusMessage {
+                    Text(cloudBackupStatusMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 10) {
+                        Button {
+                            chooseCloudBackupFolder()
+                        } label: {
+                            Label(
+                                appStore.cloudBackupFolderPath == nil ? localization.text(.chooseCloudFolder) : localization.text(.changeCloudFolder),
+                                systemImage: "folder.badge.plus"
+                            )
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button {
+                            cloudBackupStatusMessage = appStore.backupProfilesToCloud()
+                                ? localization.text(.cloudBackupComplete)
+                                : localization.text(.cloudBackupFailed)
+                        } label: {
+                            Label(localization.text(.backupNow), systemImage: "icloud.and.arrow.up")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(appStore.cloudBackupFolderPath == nil)
+                    }
+
+                    HStack(spacing: 10) {
+                        Button {
+                            cloudBackupStatusMessage = appStore.restoreProfilesFromCloud()
+                                ? localization.text(.cloudRestoreComplete)
+                                : localization.text(.cloudRestoreFailed)
+                        } label: {
+                            Label(localization.text(.restoreFromCloud), systemImage: "icloud.and.arrow.down")
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(appStore.cloudBackupFolderPath == nil)
+
+                        if appStore.cloudBackupFolderPath != nil {
+                            Button {
+                                appStore.clearCloudBackupFolder()
+                                cloudBackupStatusMessage = nil
+                            } label: {
+                                Text(localization.text(.clearCloudFolder))
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                }
+            }
+
+            Divider().padding(.vertical, 4)
+
             HStack(spacing: 12) {
                 Button {
                     exportDataFolder()
@@ -902,6 +985,20 @@ struct SettingsView: View {
             Text(localization.text(.exportImportDescription))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+        }
+    }
+
+    private func chooseCloudBackupFolder() {
+        let panel = NSOpenPanel()
+        panel.title = localization.text(.chooseCloudBackupFolder)
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+
+        if AppPanelPresenter.runModal(panel) == .OK, let url = panel.url {
+            appStore.setCloudBackupFolder(url)
+            cloudBackupStatusMessage = nil
         }
     }
 
@@ -993,6 +1090,16 @@ struct SettingsView: View {
             Divider().padding(.vertical, 8)
 
             VStack(alignment: .leading, spacing: 8) {
+                Toggle(isOn: $updateManager.isAutomaticCheckEnabled) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(localization.text(.autoCheckUpdates))
+                        Text(localization.text(.autoCheckUpdatesDescription))
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .toggleStyle(.checkbox)
+
                 HStack(spacing: 12) {
                     Button {
                         checkForUpdates()
@@ -1002,7 +1109,7 @@ struct SettingsView: View {
                     .buttonStyle(.bordered)
                     .disabled(isCheckingForUpdates)
 
-                    if let availableUpdate {
+                    if let availableUpdate = availableUpdate ?? updateManager.automaticallyAvailableUpdate {
                         Button {
                             installUpdate(availableUpdate)
                         } label: {
@@ -1020,6 +1127,18 @@ struct SettingsView: View {
 
                 if let updateStatusMessage {
                     Text(updateStatusMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } else if let automaticUpdate = updateManager.automaticallyAvailableUpdate {
+                    Text(localization.text(.automaticUpdateAvailableFormat, automaticUpdate.version))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } else if updateManager.lastAutomaticCheckFailed {
+                    Text(localization.text(.automaticUpdateCheckFailed))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } else if let lastAutomaticCheckAt = updateManager.lastAutomaticCheckAt {
+                    Text(localization.text(.lastAutoUpdateCheckFormat, profileDateFormatter.string(from: lastAutomaticCheckAt)))
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -1052,6 +1171,9 @@ struct SettingsView: View {
                 let update = try await AppUpdateManager.shared.checkForUpdate()
                 await MainActor.run {
                     availableUpdate = update
+                    if update == nil {
+                        updateManager.clearAutomaticallyAvailableUpdate()
+                    }
                     updateStatusMessage = update.map { localization.text(.updateAvailableFormat, $0.version) } ?? localization.text(.appUpToDate)
                     isCheckingForUpdates = false
                 }

@@ -1,6 +1,8 @@
 import AppKit
+import Combine
 import Darwin
 import Foundation
+import UserNotifications
 
 struct AppUpdateInfo {
     let version: String
@@ -15,28 +17,61 @@ struct AppUpdateInfo {
     }
 }
 
-final class AppUpdateManager {
+final class AppUpdateManager: ObservableObject {
     static let shared = AppUpdateManager()
 
     private let latestReleaseURL = URL(string: "https://api.github.com/repos/nucrasenaa/LaunchNow/releases/latest")!
     private let automaticCheckInterval: TimeInterval = 6 * 60 * 60
+    private let automaticChecksEnabledKey = "automaticUpdateChecksEnabled"
     private let lastAutomaticCheckKey = "lastAutomaticUpdateCheckAt"
+    private let lastNotifiedVersionKey = "lastNotifiedUpdateVersion"
     private var automaticUpdateTimer: Timer?
     private var isAutomaticUpdateRunning = false
 
-    private init() {}
+    @Published var isAutomaticCheckEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(isAutomaticCheckEnabled, forKey: automaticChecksEnabledKey)
+            if isAutomaticCheckEnabled {
+                startAutomaticUpdateChecks()
+            } else {
+                stopAutomaticUpdateChecks()
+            }
+        }
+    }
+    @Published private(set) var automaticallyAvailableUpdate: AppUpdateInfo?
+    @Published private(set) var lastAutomaticCheckAt: Date?
+    @Published private(set) var lastAutomaticCheckFailed = false
+
+    private init() {
+        if UserDefaults.standard.object(forKey: automaticChecksEnabledKey) == nil {
+            isAutomaticCheckEnabled = true
+        } else {
+            isAutomaticCheckEnabled = UserDefaults.standard.bool(forKey: automaticChecksEnabledKey)
+        }
+        lastAutomaticCheckAt = UserDefaults.standard.object(forKey: lastAutomaticCheckKey) as? Date
+    }
 
     func startAutomaticUpdateChecks() {
         automaticUpdateTimer?.invalidate()
+        guard isAutomaticCheckEnabled else { return }
 
         Task {
             try? await Task.sleep(for: .seconds(10))
-            await installAvailableUpdateAutomaticallyIfNeeded()
+            await checkAutomaticallyIfNeeded()
         }
 
         automaticUpdateTimer = Timer.scheduledTimer(withTimeInterval: automaticCheckInterval, repeats: true) { [weak self] _ in
-            Task { await self?.installAvailableUpdateAutomaticallyIfNeeded() }
+            Task { await self?.checkAutomaticallyIfNeeded() }
         }
+    }
+
+    func stopAutomaticUpdateChecks() {
+        automaticUpdateTimer?.invalidate()
+        automaticUpdateTimer = nil
+    }
+
+    func clearAutomaticallyAvailableUpdate() {
+        automaticallyAvailableUpdate = nil
     }
 
     func checkForUpdate() async throws -> AppUpdateInfo? {
@@ -77,7 +112,8 @@ final class AppUpdateManager {
         }
     }
 
-    private func installAvailableUpdateAutomaticallyIfNeeded() async {
+    private func checkAutomaticallyIfNeeded() async {
+        guard isAutomaticCheckEnabled else { return }
         guard !isAutomaticUpdateRunning else { return }
 
         let now = Date()
@@ -89,10 +125,51 @@ final class AppUpdateManager {
         defer { isAutomaticUpdateRunning = false }
 
         do {
-            guard let update = try await checkForUpdate(), update.packageKind == .zip else { return }
-            _ = try await downloadAndInstall(update)
+            let update = try await checkForUpdate()
+            await MainActor.run {
+                self.automaticallyAvailableUpdate = update
+                self.lastAutomaticCheckAt = now
+                self.lastAutomaticCheckFailed = false
+            }
+            if let update {
+                await notifyUpdateAvailableIfNeeded(update)
+            }
         } catch {
-            // Automatic checks are intentionally quiet. Manual checks still show errors in Settings.
+            await MainActor.run {
+                self.lastAutomaticCheckAt = now
+                self.lastAutomaticCheckFailed = true
+            }
+        }
+    }
+
+    private func notifyUpdateAvailableIfNeeded(_ update: AppUpdateInfo) async {
+        let defaults = UserDefaults.standard
+        guard defaults.string(forKey: lastNotifiedVersionKey) != update.version else { return }
+
+        let center = UNUserNotificationCenter.current()
+        let granted = await withCheckedContinuation { continuation in
+            center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
+                continuation.resume(returning: granted)
+            }
+        }
+        guard granted else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = LocalizationManager.shared.text(.updateNotificationTitleFormat, update.version)
+        content.body = LocalizationManager.shared.text(.updateNotificationBody)
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: "LaunchNowUpdate-\(update.version)",
+            content: content,
+            trigger: nil
+        )
+
+        do {
+            try await center.add(request)
+            defaults.set(update.version, forKey: lastNotifiedVersionKey)
+        } catch {
+            // Notifications are best-effort; Settings still shows the available update.
         }
     }
 

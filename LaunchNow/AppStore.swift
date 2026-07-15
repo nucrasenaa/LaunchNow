@@ -102,6 +102,8 @@ final class AppStore: ObservableObject {
     @Published var folders: [FolderInfo] = []
     @Published var items: [LaunchpadItem] = []
     @Published private(set) var profiles: [ProfileSummary] = []
+    @Published private(set) var cloudBackupFolderPath: String?
+    @Published private(set) var lastCloudBackupAt: Date?
     @Published var isSetting = false
     @Published var currentPage = 0
     @Published var searchText: String = ""
@@ -250,6 +252,8 @@ final class AppStore: ObservableObject {
     private static let backgroundOpacityDefaultsKey = "backgroundOpacity"
     private static let backgroundBlurDefaultsKey = "backgroundBlur"
     private static let customBackgroundImagePathDefaultsKey = "customBackgroundImagePath"
+    private static let cloudBackupFolderPathDefaultsKey = "cloudBackupFolderPath"
+    private static let lastCloudBackupAtDefaultsKey = "lastCloudBackupAt"
     private var isInitializingCustomPaths = false
     
     private var applicationSearchPaths: [String] {
@@ -303,6 +307,13 @@ final class AppStore: ObservableObject {
         let savedRows = UserDefaults.standard.integer(forKey: "gridRows")
         self.gridColumns = savedCols == 0 ? 6 : max(3, min(savedCols, 12))
         self.gridRows = savedRows == 0 ? 4 : max(2, min(savedRows, 8))
+        if let savedCloudPath = UserDefaults.standard.string(forKey: Self.cloudBackupFolderPathDefaultsKey),
+           !savedCloudPath.isEmpty {
+            self.cloudBackupFolderPath = savedCloudPath
+        }
+        if let savedCloudBackupDate = UserDefaults.standard.object(forKey: Self.lastCloudBackupAtDefaultsKey) as? Date {
+            self.lastCloudBackupAt = savedCloudBackupDate
+        }
         
         isInitializingCustomPaths = true
         let storedCustomPaths = UserDefaults.standard.array(forKey: Self.customSearchPathsDefaultsKey) as? [String] ?? []
@@ -470,6 +481,58 @@ final class AppStore: ObservableObject {
             reloadProfiles()
         } catch {
             NSSound.beep()
+        }
+    }
+
+    func setCloudBackupFolder(_ url: URL) {
+        let normalizedPath = Self.normalizePath(url.path)
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: normalizedPath, isDirectory: &isDirectory), isDirectory.boolValue else {
+            NSSound.beep()
+            return
+        }
+        cloudBackupFolderPath = normalizedPath
+        UserDefaults.standard.set(normalizedPath, forKey: Self.cloudBackupFolderPathDefaultsKey)
+    }
+
+    func clearCloudBackupFolder() {
+        cloudBackupFolderPath = nil
+        lastCloudBackupAt = nil
+        UserDefaults.standard.removeObject(forKey: Self.cloudBackupFolderPathDefaultsKey)
+        UserDefaults.standard.removeObject(forKey: Self.lastCloudBackupAtDefaultsKey)
+    }
+
+    func backupProfilesToCloud() -> Bool {
+        do {
+            saveAllOrder()
+            let source = try profilesDirectoryURL()
+            let destination = try cloudProfilesDirectoryURL()
+            try copyDirectoryIfPresent(from: source, to: destination)
+            try writeCloudBackupManifest()
+            let now = Date()
+            lastCloudBackupAt = now
+            UserDefaults.standard.set(now, forKey: Self.lastCloudBackupAtDefaultsKey)
+            return true
+        } catch {
+            NSSound.beep()
+            return false
+        }
+    }
+
+    func restoreProfilesFromCloud() -> Bool {
+        do {
+            let source = try cloudProfilesDirectoryURL()
+            guard FileManager.default.fileExists(atPath: source.path) else {
+                NSSound.beep()
+                return false
+            }
+            let destination = try profilesDirectoryURL()
+            try copyDirectoryIfPresent(from: source, to: destination)
+            reloadProfiles()
+            return true
+        } catch {
+            NSSound.beep()
+            return false
         }
     }
 
@@ -659,6 +722,33 @@ final class AppStore: ObservableObject {
 
     private func profileDocumentURL(in directory: URL) -> URL {
         directory.appendingPathComponent("Profile.json", conformingTo: .json)
+    }
+
+    private func cloudBackupRootURL() throws -> URL {
+        guard let cloudBackupFolderPath else {
+            throw CocoaError(.fileNoSuchFile)
+        }
+        let root = URL(fileURLWithPath: cloudBackupFolderPath)
+            .appendingPathComponent("LaunchNow Backups", isDirectory: true)
+        if !FileManager.default.fileExists(atPath: root.path) {
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        }
+        return root
+    }
+
+    private func cloudProfilesDirectoryURL() throws -> URL {
+        try cloudBackupRootURL().appendingPathComponent("Profiles", isDirectory: true)
+    }
+
+    private func writeCloudBackupManifest() throws {
+        let manifestURL = try cloudBackupRootURL().appendingPathComponent("CloudBackup.json", conformingTo: .json)
+        let manifest: [String: String] = [
+            "app": "LaunchNow",
+            "updatedAt": ISO8601DateFormatter().string(from: Date()),
+            "profileCount": "\(profiles.count)"
+        ]
+        let data = try JSONEncoder.prettyProfileEncoder.encode(manifest)
+        try data.write(to: manifestURL, options: [.atomic])
     }
 
     private func appSupportDirectoryURL() throws -> URL {

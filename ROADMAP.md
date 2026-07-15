@@ -22,16 +22,19 @@ Use this checklist to track future features. We can work through them one by one
 - [x] 6. Backup / Restore Profiles
   - Support multiple saved layouts, such as Work, Personal, Gaming, or exported/imported profiles.
 
-- [ ] 7. Cloud Folder Sync
+- [x] 7. Cloud Folder Sync
   - Let users choose an iCloud Drive, Google Drive, Dropbox, OneDrive, or other synced folder for online profile backups.
 
-- [x] 8. Search Actions
+- [x] 8. Auto Check Update
+  - Automatically check for new releases in the background and notify users when an update is available.
+
+- [x] 9. Search Actions
   - Let users choose whether search covers LaunchNow apps or all apps on the Mac, while exposing contextual actions in search results.
 
-- [x] 9. Auto-organize Apps
+- [x] 10. Auto-organize Apps
   - Group apps automatically by category, such as Developer, Design, Games, Utilities, and Productivity.
 
-- [x] 10. Change Background
+- [x] 11. Change Background
   - Let users customize the LaunchNow background with colors, images, opacity, blur, and appearance presets.
 
 ## Suggested Order
@@ -41,7 +44,8 @@ Use this checklist to track future features. We can work through them one by one
 - [x] Change Background
 - [x] Custom Folder Icon
 - [x] Keyboard Shortcut / Hotkey Setting
-- [ ] Cloud Folder Sync
+- [x] Cloud Folder Sync
+- [x] Auto Check Update
 - [x] Search Actions
 - [x] Theme / Appearance Presets
 - [x] Backup / Restore Profiles

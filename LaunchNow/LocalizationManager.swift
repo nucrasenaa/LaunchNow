@@ -174,8 +174,27 @@ enum L10nKey: String {
     case noProfiles
     case profilesDescription
     case updatedFormat
+    case cloudBackup
+    case cloudBackupDescription
+    case chooseCloudFolder
+    case changeCloudFolder
+    case clearCloudFolder
+    case backupNow
+    case restoreFromCloud
+    case noCloudFolder
+    case lastCloudBackupFormat
+    case chooseCloudBackupFolder
+    case cloudBackupComplete
+    case cloudBackupFailed
+    case cloudRestoreComplete
+    case cloudRestoreFailed
     case versionFormat
     case aboutDescription
+    case autoCheckUpdates
+    case autoCheckUpdatesDescription
+    case lastAutoUpdateCheckFormat
+    case automaticUpdateAvailableFormat
+    case automaticUpdateCheckFailed
     case checkForUpdates
     case checkingForUpdates
     case appUpToDate
@@ -189,6 +208,8 @@ enum L10nKey: String {
     case updateDownloadedFormat
     case updateDownloadFailed
     case updateInstallFailed
+    case updateNotificationTitleFormat
+    case updateNotificationBody
     case uninstall
     case uninstallDescription
     case uninstallTitle
@@ -390,8 +411,27 @@ final class LocalizationManager: ObservableObject {
             .noProfiles: "No profiles yet.",
             .profilesDescription: "Save multiple LaunchNow layouts and settings, then switch between them anytime.",
             .updatedFormat: "Updated %@",
+            .cloudBackup: "Cloud Backup",
+            .cloudBackupDescription: "Choose a synced folder such as iCloud Drive, Google Drive, Dropbox, or OneDrive to keep profile backups online.",
+            .chooseCloudFolder: "Choose Folder",
+            .changeCloudFolder: "Change Folder",
+            .clearCloudFolder: "Clear Folder",
+            .backupNow: "Backup Now",
+            .restoreFromCloud: "Restore from Cloud",
+            .noCloudFolder: "No cloud folder selected.",
+            .lastCloudBackupFormat: "Last backup %@",
+            .chooseCloudBackupFolder: "Choose a synced folder for LaunchNow backups",
+            .cloudBackupComplete: "Cloud backup completed.",
+            .cloudBackupFailed: "Could not backup profiles to the cloud folder.",
+            .cloudRestoreComplete: "Profiles restored from the cloud folder.",
+            .cloudRestoreFailed: "Could not restore profiles from the cloud folder.",
             .versionFormat: "Version %@",
             .aboutDescription: "A lightweight Launchpad-like app launcher.",
+            .autoCheckUpdates: "Automatically check for updates",
+            .autoCheckUpdatesDescription: "LaunchNow checks in the background and notifies you when a new release is available.",
+            .lastAutoUpdateCheckFormat: "Last automatic check %@",
+            .automaticUpdateAvailableFormat: "Version %@ is available from the automatic check.",
+            .automaticUpdateCheckFailed: "The last automatic update check failed.",
             .checkForUpdates: "Check for Updates",
             .checkingForUpdates: "Checking for updates...",
             .appUpToDate: "LaunchNow is up to date.",
@@ -405,6 +445,8 @@ final class LocalizationManager: ObservableObject {
             .updateDownloadedFormat: "Downloaded %@ and opened the installer.",
             .updateDownloadFailed: "Could not download the update.",
             .updateInstallFailed: "Could not install the update.",
+            .updateNotificationTitleFormat: "LaunchNow %@ is available",
+            .updateNotificationBody: "Open LaunchNow Settings to install the update.",
             .uninstall: "Uninstall",
             .uninstallDescription: "Quit the app and move it to the Trash. You can also remove app data.",
             .uninstallTitle: "Uninstall LaunchNow",
@@ -558,8 +600,27 @@ final class LocalizationManager: ObservableObject {
             .noProfiles: "ยังไม่มีโปรไฟล์",
             .profilesDescription: "บันทึกเลย์เอาต์และการตั้งค่า LaunchNow หลายชุด แล้วสลับใช้งานได้ทุกเวลา",
             .updatedFormat: "อัปเดต %@",
+            .cloudBackup: "สำรองข้อมูลบนคลาวด์",
+            .cloudBackupDescription: "เลือกโฟลเดอร์ที่ซิงก์อยู่ เช่น iCloud Drive, Google Drive, Dropbox หรือ OneDrive เพื่อเก็บสำรองโปรไฟล์ออนไลน์",
+            .chooseCloudFolder: "เลือกโฟลเดอร์",
+            .changeCloudFolder: "เปลี่ยนโฟลเดอร์",
+            .clearCloudFolder: "ล้างโฟลเดอร์",
+            .backupNow: "สำรองตอนนี้",
+            .restoreFromCloud: "กู้คืนจากคลาวด์",
+            .noCloudFolder: "ยังไม่ได้เลือกโฟลเดอร์คลาวด์",
+            .lastCloudBackupFormat: "สำรองล่าสุด %@",
+            .chooseCloudBackupFolder: "เลือกโฟลเดอร์ซิงก์สำหรับสำรองข้อมูล LaunchNow",
+            .cloudBackupComplete: "สำรองข้อมูลไปยังโฟลเดอร์คลาวด์แล้ว",
+            .cloudBackupFailed: "ไม่สามารถสำรองโปรไฟล์ไปยังโฟลเดอร์คลาวด์ได้",
+            .cloudRestoreComplete: "กู้คืนโปรไฟล์จากโฟลเดอร์คลาวด์แล้ว",
+            .cloudRestoreFailed: "ไม่สามารถกู้คืนโปรไฟล์จากโฟลเดอร์คลาวด์ได้",
             .versionFormat: "เวอร์ชัน %@",
             .aboutDescription: "ตัวเปิดแอปน้ำหนักเบาที่ให้ความรู้สึกคล้าย Launchpad",
+            .autoCheckUpdates: "ตรวจหาอัปเดตอัตโนมัติ",
+            .autoCheckUpdatesDescription: "LaunchNow จะตรวจในเบื้องหลังและแจ้งเตือนเมื่อมี release ใหม่",
+            .lastAutoUpdateCheckFormat: "ตรวจอัตโนมัติล่าสุด %@",
+            .automaticUpdateAvailableFormat: "มีเวอร์ชัน %@ จากการตรวจอัตโนมัติ",
+            .automaticUpdateCheckFailed: "การตรวจหาอัปเดตอัตโนมัติครั้งล่าสุดล้มเหลว",
             .checkForUpdates: "ตรวจหาอัปเดต",
             .checkingForUpdates: "กำลังตรวจหาอัปเดต...",
             .appUpToDate: "LaunchNow เป็นเวอร์ชันล่าสุดแล้ว",
@@ -573,6 +634,8 @@ final class LocalizationManager: ObservableObject {
             .updateDownloadedFormat: "ดาวน์โหลด %@ แล้ว และเปิดตัวติดตั้งให้แล้ว",
             .updateDownloadFailed: "ไม่สามารถดาวน์โหลดอัปเดตได้",
             .updateInstallFailed: "ไม่สามารถติดตั้งอัปเดตได้",
+            .updateNotificationTitleFormat: "มี LaunchNow %@ ให้ใช้งาน",
+            .updateNotificationBody: "เปิด Settings ของ LaunchNow เพื่อติดตั้งอัปเดต",
             .uninstall: "ถอนการติดตั้ง",
             .uninstallDescription: "ออกจากแอปและย้ายไปถังขยะ สามารถลบข้อมูลแอปเพิ่มเติมได้",
             .uninstallTitle: "ถอนการติดตั้ง LaunchNow",

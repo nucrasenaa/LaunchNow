@@ -18,8 +18,9 @@ LaunchNow is a polished fork of [ggkevinnnn/LaunchNow](https://github.com/ggkevi
 - **Smart controls** for fullscreen classic mode, scrolling sensitivity, multilingual UI, and background behavior.
 - **Power tools** to add, remove, or reset apps with searchable sheets and guardrails for destructive actions.
 - **Backup & restore** workflows that validate SwiftData stores before importing.
-- **Built-in updates** with background update checks and release downloads from GitHub.
+- **Built-in updates** with optional automatic background checks, macOS notifications, and release downloads from GitHub.
 - **Local profiles** to save, rename, apply, and delete multiple LaunchNow layouts and appearance setups.
+- **Cloud folder sync** for profile backups using synced folders such as iCloud Drive, Google Drive, Dropbox, or OneDrive.
 - **Configurable search scope** to search either LaunchNow apps only or all applications found on the Mac.
 - **Auto-organize** to group LaunchNow apps into category folders such as Developer, Design, Games, Utilities, and Productivity.
 
@@ -34,8 +35,10 @@ LaunchNow is a polished fork of [ggkevinnnn/LaunchNow](https://github.com/ggkevi
 7. Drag apps to reorder or group them into folders on the fly.
 8. Right-click an app or folder to rename it, change its icon, show it in Finder, or remove it from LaunchNow.
 9. Save layouts in Settings → Data → Profiles so you can switch between work, personal, or gaming setups.
-10. Use Settings → App Management → Auto-organize Apps to create category folders automatically.
-11. Need a fresh slate? Use Reset Apps to clear the LaunchNow grid. Your apps on disk stay untouched.
+10. Choose Settings → Data → Cloud Backup to keep profile backups in your synced cloud folder.
+11. Use Settings → App Management → Auto-organize Apps to create category folders automatically.
+12. Open Settings → About to check for updates manually or keep automatic update checks enabled.
+13. Need a fresh slate? Use Reset Apps to clear the LaunchNow grid. Your apps on disk stay untouched.
 
 ## Languages
 
