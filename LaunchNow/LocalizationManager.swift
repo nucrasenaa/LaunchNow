@@ -192,6 +192,15 @@ enum L10nKey: String {
     case aboutDescription
     case autoCheckUpdates
     case autoCheckUpdatesDescription
+    case autoUpdateNow
+    case updateStatus
+    case updateStatusWaiting
+    case updateLog
+    case noUpdateLogs
+    case updateErrorDetailsFormat
+    case manualUpdateCheck
+    case manualUpdateCheckFailed
+    case autoUpdateFailed
     case lastAutoUpdateCheckFormat
     case automaticUpdateAvailableFormat
     case automaticUpdateCheckFailed
@@ -429,6 +438,15 @@ final class LocalizationManager: ObservableObject {
             .aboutDescription: "A lightweight Launchpad-like app launcher.",
             .autoCheckUpdates: "Automatically check for updates",
             .autoCheckUpdatesDescription: "LaunchNow checks in the background and notifies you when a new release is available.",
+            .autoUpdateNow: "Auto Update Now",
+            .updateStatus: "Update Status",
+            .updateStatusWaiting: "No automatic update check has run yet.",
+            .updateLog: "Update Log",
+            .noUpdateLogs: "No update log yet.",
+            .updateErrorDetailsFormat: "Details: %@",
+            .manualUpdateCheck: "Manual update check",
+            .manualUpdateCheckFailed: "Manual update check failed",
+            .autoUpdateFailed: "Auto update failed",
             .lastAutoUpdateCheckFormat: "Last automatic check %@",
             .automaticUpdateAvailableFormat: "Version %@ is available from the automatic check.",
             .automaticUpdateCheckFailed: "The last automatic update check failed.",
@@ -618,6 +636,15 @@ final class LocalizationManager: ObservableObject {
             .aboutDescription: "ตัวเปิดแอปน้ำหนักเบาที่ให้ความรู้สึกคล้าย Launchpad",
             .autoCheckUpdates: "ตรวจหาอัปเดตอัตโนมัติ",
             .autoCheckUpdatesDescription: "LaunchNow จะตรวจในเบื้องหลังและแจ้งเตือนเมื่อมี release ใหม่",
+            .autoUpdateNow: "อัปเดตอัตโนมัติตอนนี้",
+            .updateStatus: "สถานะอัปเดต",
+            .updateStatusWaiting: "ยังไม่มีการตรวจหาอัปเดตอัตโนมัติ",
+            .updateLog: "บันทึกอัปเดต",
+            .noUpdateLogs: "ยังไม่มีบันทึกอัปเดต",
+            .updateErrorDetailsFormat: "รายละเอียด: %@",
+            .manualUpdateCheck: "ตรวจหาอัปเดตด้วยตนเอง",
+            .manualUpdateCheckFailed: "ตรวจหาอัปเดตด้วยตนเองล้มเหลว",
+            .autoUpdateFailed: "อัปเดตอัตโนมัติล้มเหลว",
             .lastAutoUpdateCheckFormat: "ตรวจอัตโนมัติล่าสุด %@",
             .automaticUpdateAvailableFormat: "มีเวอร์ชัน %@ จากการตรวจอัตโนมัติ",
             .automaticUpdateCheckFailed: "การตรวจหาอัปเดตอัตโนมัติครั้งล่าสุดล้มเหลว",

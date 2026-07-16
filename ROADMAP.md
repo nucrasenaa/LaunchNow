@@ -4,7 +4,7 @@ Use this checklist to track future features. When the 2.0.0 roadmap is complete,
 
 ## Roadmap to 2.0.0
 
-- [ ] 1. Update UX Improvements
+- [x] 1. Update UX Improvements
   - Show the latest automatic update check status more clearly.
   - Show readable error details or logs when update checks, downloads, or installs fail.
   - Add an auto update button so users can trigger the automatic update flow directly.
@@ -56,7 +56,7 @@ Use this checklist to track future features. When the 2.0.0 roadmap is complete,
 
 ## Suggested 2.0.0 Order
 
-- [ ] Update UX Improvements
+- [x] Update UX Improvements
 - [ ] Cloud Sync Auto Backup
 - [ ] Profile Version History
 - [ ] Layout Lock / Edit Mode

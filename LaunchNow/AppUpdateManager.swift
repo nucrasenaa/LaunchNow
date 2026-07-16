@@ -17,6 +17,14 @@ struct AppUpdateInfo {
     }
 }
 
+struct AppUpdateLogEntry: Identifiable {
+    let id = UUID()
+    let date: Date
+    let title: String
+    let detail: String
+    let isError: Bool
+}
+
 final class AppUpdateManager: ObservableObject {
     static let shared = AppUpdateManager()
 
@@ -41,6 +49,8 @@ final class AppUpdateManager: ObservableObject {
     @Published private(set) var automaticallyAvailableUpdate: AppUpdateInfo?
     @Published private(set) var lastAutomaticCheckAt: Date?
     @Published private(set) var lastAutomaticCheckFailed = false
+    @Published private(set) var lastUpdateErrorMessage: String?
+    @Published private(set) var updateLogs: [AppUpdateLogEntry] = []
 
     private init() {
         if UserDefaults.standard.object(forKey: automaticChecksEnabledKey) == nil {
@@ -73,6 +83,45 @@ final class AppUpdateManager: ObservableObject {
 
     func clearAutomaticallyAvailableUpdate() {
         automaticallyAvailableUpdate = nil
+    }
+
+    @MainActor
+    func recordUpdateLog(title: String, detail: String, isError: Bool = false) {
+        if isError {
+            lastUpdateErrorMessage = detail
+        }
+        updateLogs.insert(
+            AppUpdateLogEntry(date: Date(), title: title, detail: detail, isError: isError),
+            at: 0
+        )
+        if updateLogs.count > 8 {
+            updateLogs.removeLast(updateLogs.count - 8)
+        }
+    }
+
+    @MainActor
+    func clearUpdateError() {
+        lastUpdateErrorMessage = nil
+    }
+
+    func readableError(_ error: Error) -> String {
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .notConnectedToInternet:
+                return "No internet connection."
+            case .timedOut:
+                return "The request timed out."
+            case .badServerResponse:
+                return "GitHub returned an unexpected response."
+            case .fileDoesNotExist:
+                return "No compatible update package was found in the latest release."
+            case .cannotCreateFile:
+                return "LaunchNow could not prepare the updater files."
+            default:
+                return urlError.localizedDescription
+            }
+        }
+        return error.localizedDescription
     }
 
     func checkForUpdate() async throws -> AppUpdateInfo? {
@@ -131,14 +180,21 @@ final class AppUpdateManager: ObservableObject {
                 self.automaticallyAvailableUpdate = update
                 self.lastAutomaticCheckAt = now
                 self.lastAutomaticCheckFailed = false
+                self.lastUpdateErrorMessage = nil
+                self.recordUpdateLog(
+                    title: "Automatic check",
+                    detail: update.map { "Version \($0.version) is available." } ?? "LaunchNow is up to date."
+                )
             }
             if let update {
                 await notifyUpdateAvailableIfNeeded(update)
             }
         } catch {
+            let message = readableError(error)
             await MainActor.run {
                 self.lastAutomaticCheckAt = now
                 self.lastAutomaticCheckFailed = true
+                self.recordUpdateLog(title: "Automatic check failed", detail: message, isError: true)
             }
         }
     }

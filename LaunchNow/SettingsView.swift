@@ -1109,6 +1109,14 @@ struct SettingsView: View {
                     .buttonStyle(.bordered)
                     .disabled(isCheckingForUpdates)
 
+                    Button {
+                        autoUpdateNow()
+                    } label: {
+                        Label(localization.text(.autoUpdateNow), systemImage: "arrow.down.app")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isCheckingForUpdates || isInstallingUpdate)
+
                     if let availableUpdate = availableUpdate ?? updateManager.automaticallyAvailableUpdate {
                         Button {
                             installUpdate(availableUpdate)
@@ -1125,23 +1133,7 @@ struct SettingsView: View {
                         .controlSize(.small)
                 }
 
-                if let updateStatusMessage {
-                    Text(updateStatusMessage)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                } else if let automaticUpdate = updateManager.automaticallyAvailableUpdate {
-                    Text(localization.text(.automaticUpdateAvailableFormat, automaticUpdate.version))
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                } else if updateManager.lastAutomaticCheckFailed {
-                    Text(localization.text(.automaticUpdateCheckFailed))
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                } else if let lastAutomaticCheckAt = updateManager.lastAutomaticCheckAt {
-                    Text(localization.text(.lastAutoUpdateCheckFormat, profileDateFormatter.string(from: lastAutomaticCheckAt)))
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
+                updateStatusPanel
             }
 
             Divider().padding(.vertical, 8)
@@ -1162,10 +1154,93 @@ struct SettingsView: View {
         }
     }
 
+    private var updateStatusPanel: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Label(localization.text(.updateStatus), systemImage: updateManager.lastAutomaticCheckFailed ? "exclamationmark.triangle" : "checkmark.circle")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(updateManager.lastAutomaticCheckFailed ? .orange : .secondary)
+                Spacer()
+                if let lastAutomaticCheckAt = updateManager.lastAutomaticCheckAt {
+                    Text(profileDateFormatter.string(from: lastAutomaticCheckAt))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Text(currentUpdateStatusText)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            if let lastUpdateErrorMessage = updateManager.lastUpdateErrorMessage {
+                Text(localization.text(.updateErrorDetailsFormat, lastUpdateErrorMessage))
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .textSelection(.enabled)
+            }
+
+            if updateManager.updateLogs.isEmpty {
+                Text(localization.text(.noUpdateLogs))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(localization.text(.updateLog))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    ForEach(updateManager.updateLogs) { entry in
+                        HStack(alignment: .top, spacing: 8) {
+                            Image(systemName: entry.isError ? "xmark.circle.fill" : "checkmark.circle.fill")
+                                .foregroundStyle(entry.isError ? .red : .green)
+                                .font(.caption)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(entry.title)
+                                    .font(.caption.weight(.semibold))
+                                Text(entry.detail)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .textSelection(.enabled)
+                            }
+                            Spacer()
+                            Text(profileDateFormatter.string(from: entry.date))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: 560, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.primary.opacity(0.05))
+        )
+    }
+
+    private var currentUpdateStatusText: String {
+        if let updateStatusMessage {
+            return updateStatusMessage
+        }
+        if let automaticUpdate = updateManager.automaticallyAvailableUpdate {
+            return localization.text(.automaticUpdateAvailableFormat, automaticUpdate.version)
+        }
+        if updateManager.lastAutomaticCheckFailed {
+            return localization.text(.automaticUpdateCheckFailed)
+        }
+        if let lastAutomaticCheckAt = updateManager.lastAutomaticCheckAt {
+            return localization.text(.lastAutoUpdateCheckFormat, profileDateFormatter.string(from: lastAutomaticCheckAt))
+        }
+        return localization.text(.updateStatusWaiting)
+    }
+
     private func checkForUpdates() {
         isCheckingForUpdates = true
         updateStatusMessage = localization.text(.checkingForUpdates)
         availableUpdate = nil
+        Task { @MainActor in
+            updateManager.recordUpdateLog(title: localization.text(.manualUpdateCheck), detail: localization.text(.checkingForUpdates))
+        }
         Task {
             do {
                 let update = try await AppUpdateManager.shared.checkForUpdate()
@@ -1175,11 +1250,53 @@ struct SettingsView: View {
                         updateManager.clearAutomaticallyAvailableUpdate()
                     }
                     updateStatusMessage = update.map { localization.text(.updateAvailableFormat, $0.version) } ?? localization.text(.appUpToDate)
+                    updateManager.clearUpdateError()
+                    updateManager.recordUpdateLog(
+                        title: localization.text(.manualUpdateCheck),
+                        detail: update.map { localization.text(.updateAvailableFormat, $0.version) } ?? localization.text(.appUpToDate)
+                    )
                     isCheckingForUpdates = false
                 }
             } catch {
                 await MainActor.run {
+                    let detail = updateManager.readableError(error)
                     updateStatusMessage = localization.text(.updateCheckFailed)
+                    updateManager.recordUpdateLog(title: localization.text(.manualUpdateCheckFailed), detail: detail, isError: true)
+                    isCheckingForUpdates = false
+                }
+            }
+        }
+    }
+
+    private func autoUpdateNow() {
+        isCheckingForUpdates = true
+        updateStatusMessage = localization.text(.checkingForUpdates)
+        availableUpdate = nil
+        Task { @MainActor in
+            updateManager.recordUpdateLog(title: localization.text(.autoUpdateNow), detail: localization.text(.checkingForUpdates))
+        }
+        Task {
+            do {
+                guard let update = try await AppUpdateManager.shared.checkForUpdate() else {
+                    await MainActor.run {
+                        updateManager.clearAutomaticallyAvailableUpdate()
+                        updateManager.clearUpdateError()
+                        updateStatusMessage = localization.text(.appUpToDate)
+                        updateManager.recordUpdateLog(title: localization.text(.autoUpdateNow), detail: localization.text(.appUpToDate))
+                        isCheckingForUpdates = false
+                    }
+                    return
+                }
+                await MainActor.run {
+                    availableUpdate = update
+                    isCheckingForUpdates = false
+                }
+                installUpdate(update)
+            } catch {
+                await MainActor.run {
+                    let detail = updateManager.readableError(error)
+                    updateStatusMessage = localization.text(.updateCheckFailed)
+                    updateManager.recordUpdateLog(title: localization.text(.autoUpdateFailed), detail: detail, isError: true)
                     isCheckingForUpdates = false
                 }
             }
@@ -1189,6 +1306,9 @@ struct SettingsView: View {
     private func installUpdate(_ update: AppUpdateInfo) {
         isInstallingUpdate = true
         updateStatusMessage = localization.text(.installingUpdate)
+        Task { @MainActor in
+            updateManager.recordUpdateLog(title: localization.text(.installUpdate), detail: localization.text(.installingUpdate))
+        }
         Task {
             do {
                 let destinationURL = try await AppUpdateManager.shared.downloadAndInstall(update)
@@ -1196,14 +1316,18 @@ struct SettingsView: View {
                     updateStatusMessage = update.packageKind == .zip
                         ? localization.text(.installingUpdateRelaunch)
                         : localization.text(.updateDownloadedFormat, destinationURL.lastPathComponent)
+                    updateManager.clearUpdateError()
+                    updateManager.recordUpdateLog(title: localization.text(.installUpdate), detail: updateStatusMessage ?? "")
                     isInstallingUpdate = false
                 }
             } catch {
                 await MainActor.run {
+                    let detail = updateManager.readableError(error)
                     updateStatusMessage = localization.text(.updateInstallFailed)
+                    updateManager.recordUpdateLog(title: localization.text(.updateInstallFailed), detail: detail, isError: true)
                     isInstallingUpdate = false
                 }
-            }
+                }
         }
     }
 
