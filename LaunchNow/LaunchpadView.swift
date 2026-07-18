@@ -46,6 +46,7 @@ struct LaunchpadView: View {
     @State private var folderHoverBeganAt: Date? = nil
     @State private var selectedIndex: Int? = nil
     @State private var isKeyboardNavigationActive: Bool = false
+    @State private var isCommandPalettePresented: Bool = false
     @FocusState private var isSearchFieldFocused: Bool
     @Namespace private var reorderNamespace
     @State private var handoffEventMonitor: Any? = nil
@@ -531,6 +532,27 @@ struct LaunchpadView: View {
                         
                     }
                 }
+
+                if isCommandPalettePresented {
+                    Color.black.opacity(0.18)
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            isCommandPalettePresented = false
+                        }
+
+                    CommandPaletteView(
+                        entries: commandPaletteEntries,
+                        onOpen: openCommandPaletteEntry,
+                        onShowInFinder: showCommandPaletteEntryInFinder,
+                        onRename: renameCommandPaletteEntry,
+                        onChangeIcon: changeCommandPaletteEntryIcon,
+                        onDismiss: {
+                            isCommandPalettePresented = false
+                        }
+                    )
+                    .transition(.scale(scale: 0.96).combined(with: .opacity))
+                    .zIndex(200)
+                }
             }
         )
          .onChange(of: appStore.items) {
@@ -600,6 +622,91 @@ struct LaunchpadView: View {
         AppDelegate.shared?.hideWindow()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             NSWorkspace.shared.open(app.url)
+        }
+    }
+
+    private var commandPaletteEntries: [CommandPaletteEntry] {
+        var entries: [CommandPaletteEntry] = []
+        var seenAppPaths = Set<String>()
+        var seenFolderIds = Set<String>()
+
+        func appendApp(_ app: AppInfo) {
+            if seenAppPaths.insert(app.url.path).inserted {
+                entries.append(CommandPaletteEntry(kind: .app(app)))
+            }
+        }
+
+        for folder in appStore.folders {
+            if seenFolderIds.insert(folder.id).inserted {
+                entries.append(CommandPaletteEntry(kind: .folder(folder)))
+            }
+        }
+
+        for item in appStore.items {
+            switch item {
+            case .app(let app):
+                appendApp(app)
+            case .folder(let folder):
+                folder.apps.forEach(appendApp)
+            case .empty:
+                break
+            }
+        }
+
+        if appStore.searchScope == .allApplications {
+            appStore.availableApps.forEach(appendApp)
+        }
+
+        return entries
+    }
+
+    private func openCommandPaletteEntry(_ entry: CommandPaletteEntry) {
+        isCommandPalettePresented = false
+        switch entry.kind {
+        case .app(let app):
+            launchApp(app)
+        case .folder(let folder):
+            withAnimation(LNAnimations.springFast) {
+                appStore.openFolder = folder
+            }
+        case .file(let url):
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    private func showCommandPaletteEntryInFinder(_ entry: CommandPaletteEntry) {
+        isCommandPalettePresented = false
+        switch entry.kind {
+        case .app(let app):
+            NSWorkspace.shared.activateFileViewerSelecting([app.url])
+        case .folder(let folder):
+            NSWorkspace.shared.activateFileViewerSelecting(folder.apps.map(\.url))
+        case .file(let url):
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+        }
+    }
+
+    private func renameCommandPaletteEntry(_ entry: CommandPaletteEntry) {
+        isCommandPalettePresented = false
+        switch entry.kind {
+        case .app(let app):
+            appStore.presentRenameAppPanel(for: app)
+        case .folder(let folder):
+            appStore.presentRenameFolderPanel(for: folder)
+        case .file:
+            break
+        }
+    }
+
+    private func changeCommandPaletteEntryIcon(_ entry: CommandPaletteEntry) {
+        isCommandPalettePresented = false
+        switch entry.kind {
+        case .app(let app):
+            appStore.presentChangeIconPanel(for: app)
+        case .folder(let folder):
+            appStore.presentChangeFolderIconPanel(for: folder)
+        case .file:
+            break
         }
     }
 
@@ -928,6 +1035,26 @@ extension LaunchpadView {
     }
 
     private func handleKeyEvent(_ event: NSEvent) -> NSEvent? {
+        if event.modifierFlags.contains(.command), event.keyCode == 40 {
+            withAnimation(LNAnimations.springFast) {
+                appStore.openFolder = nil
+                isCommandPalettePresented.toggle()
+            }
+            if isCommandPalettePresented {
+                isSearchFieldFocused = false
+                isKeyboardNavigationActive = false
+            }
+            return nil
+        }
+
+        if isCommandPalettePresented {
+            if event.keyCode == 53 {
+                isCommandPalettePresented = false
+                return nil
+            }
+            return event
+        }
+
         if isFolderOpen {
             if event.keyCode == 53 { // esc
                 let closingFolder = appStore.openFolder

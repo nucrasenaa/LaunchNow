@@ -24,7 +24,7 @@ Use this checklist to track future features. When the 2.0.0 roadmap is complete,
   - Suggest folders or categories from usage patterns.
   - Add a toggle so users can disable smart suggestions or automatic layout changes.
 
-- [ ] 5. Search Command Palette
+- [x] 5. Search Command Palette
   - Add a shortcut-driven command palette for app search and actions.
   - Support actions such as Open, Show in Finder, Rename, and Change Icon.
   - Keep the flow focused on LaunchNow while feeling fast like Spotlight or Raycast.
@@ -60,7 +60,7 @@ Use this checklist to track future features. When the 2.0.0 roadmap is complete,
 - [x] Cloud Sync Auto Backup
 - [x] Profile Version History
 - [x] Layout Lock / Edit Mode
-- [ ] Search Command Palette
+- [x] Search Command Palette
 - [ ] Diagnostics / Support Panel
 - [ ] Performance / Large App Library Polish
 - [ ] Folder Customization More

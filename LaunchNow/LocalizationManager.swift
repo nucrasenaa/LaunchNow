@@ -258,6 +258,11 @@ enum L10nKey: String {
     case includeFolderApps
     case search
     case noAppsFound
+    case commandPalette
+    case commandPalettePlaceholder
+    case commandPaletteEmpty
+    case commandPaletteSearchingFiles
+    case commandPaletteShortcutHint
     case layoutLocked
     case editLayout
     case doneEditingLayout
@@ -524,6 +529,11 @@ final class LocalizationManager: ObservableObject {
             .includeFolderApps: "Include apps inside folders",
             .search: "Search",
             .noAppsFound: "No apps found",
+            .commandPalette: "Command Palette",
+            .commandPalettePlaceholder: "Search apps, folders, files, or actions",
+            .commandPaletteEmpty: "No matching commands.",
+            .commandPaletteSearchingFiles: "Searching files...",
+            .commandPaletteShortcutHint: "Command + K to open, Return to launch, Esc to close",
             .layoutLocked: "Layout locked",
             .editLayout: "Edit layout",
             .doneEditingLayout: "Done editing",
@@ -742,6 +752,11 @@ final class LocalizationManager: ObservableObject {
             .includeFolderApps: "รวมแอปที่อยู่ในโฟลเดอร์",
             .search: "ค้นหา",
             .noAppsFound: "ไม่พบแอป",
+            .commandPalette: "Command Palette",
+            .commandPalettePlaceholder: "ค้นหาแอป โฟลเดอร์ ไฟล์ หรือคำสั่ง",
+            .commandPaletteEmpty: "ไม่พบคำสั่งที่ตรงกัน",
+            .commandPaletteSearchingFiles: "กำลังค้นหาไฟล์...",
+            .commandPaletteShortcutHint: "Command + K เพื่อเปิด, Return เพื่อเปิดใช้งาน, Esc เพื่อปิด",
             .layoutLocked: "ล็อกเลย์เอาต์",
             .editLayout: "แก้ไขเลย์เอาต์",
             .doneEditingLayout: "เสร็จสิ้น",
