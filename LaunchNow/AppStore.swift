@@ -139,6 +139,17 @@ final class AppStore: ObservableObject {
     @Published var isSetting = false
     @Published var currentPage = 0
     @Published var searchText: String = ""
+    @Published var isLayoutEditing: Bool = false {
+        didSet {
+            UserDefaults.standard.set(isLayoutEditing, forKey: Self.layoutEditingDefaultsKey)
+            if !isLayoutEditing {
+                isDragCreatingFolder = false
+                folderCreationTarget = nil
+                handoffDraggingApp = nil
+                handoffDragScreenLocation = nil
+            }
+        }
+    }
     @Published var searchScope: LaunchpadSearchScope = .launchNowApps {
         didSet {
             UserDefaults.standard.set(searchScope.rawValue, forKey: Self.searchScopeDefaultsKey)
@@ -291,6 +302,7 @@ final class AppStore: ObservableObject {
     private static let cloudBackupFolderPathDefaultsKey = "cloudBackupFolderPath"
     private static let lastCloudBackupAtDefaultsKey = "lastCloudBackupAt"
     private static let cloudAutoBackupEnabledDefaultsKey = "cloudAutoBackupEnabled"
+    private static let layoutEditingDefaultsKey = "layoutEditing"
     private static let maxProfileHistoryCount = 10
     private var isInitializingCustomPaths = false
     
@@ -325,6 +337,7 @@ final class AppStore: ObservableObject {
         }
         let savedSearchScope = UserDefaults.standard.string(forKey: Self.searchScopeDefaultsKey) ?? LaunchpadSearchScope.launchNowApps.rawValue
         self.searchScope = LaunchpadSearchScope(rawValue: savedSearchScope) ?? .launchNowApps
+        self.isLayoutEditing = UserDefaults.standard.bool(forKey: Self.layoutEditingDefaultsKey)
         let savedBackgroundPreset = UserDefaults.standard.string(forKey: Self.backgroundPresetDefaultsKey) ?? LaunchpadBackgroundPreset.system.rawValue
         self.backgroundPreset = LaunchpadBackgroundPreset(rawValue: savedBackgroundPreset) ?? .system
         let savedAppearancePreset = UserDefaults.standard.string(forKey: Self.appearancePresetDefaultsKey) ?? LaunchpadAppearancePreset.glass.rawValue

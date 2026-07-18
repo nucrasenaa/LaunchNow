@@ -221,6 +221,18 @@ struct LaunchpadView: View {
                     .font(.title)
                     .textFieldStyle(.plain)
                     Spacer()
+
+                    Button {
+                        withAnimation(LNAnimations.springFast) {
+                            appStore.isLayoutEditing.toggle()
+                        }
+                    } label: {
+                        Image(systemName: appStore.isLayoutEditing ? "checkmark.circle.fill" : "lock.fill")
+                            .font(.title)
+                            .foregroundColor(appStore.isLayoutEditing ? Color.blue : Color.secondary.opacity(0.5))
+                    }
+                    .buttonStyle(.plain)
+                    .help(appStore.isLayoutEditing ? localization.text(.doneEditingLayout) : localization.text(.layoutLockedHint))
                     
                     Button {
                         appStore.isSetting = true
@@ -335,12 +347,15 @@ struct LaunchpadView: View {
                         .onAppear { }
                         
                         .onChange(of: appStore.handoffDraggingApp) {
-                            if appStore.openFolder == nil, appStore.handoffDraggingApp != nil {
+                            if appStore.isLayoutEditing, appStore.openFolder == nil, appStore.handoffDraggingApp != nil {
                                 startHandoffDragIfNeeded(geo: geo, columnWidth: columnWidth, appHeight: appHeight, iconSize: iconSize)
+                            } else if !appStore.isLayoutEditing {
+                                appStore.handoffDraggingApp = nil
+                                appStore.handoffDragScreenLocation = nil
                             }
                         }
                         .onChange(of: appStore.openFolder) {
-                            if appStore.openFolder == nil, appStore.handoffDraggingApp != nil {
+                            if appStore.isLayoutEditing, appStore.openFolder == nil, appStore.handoffDraggingApp != nil {
                                 startHandoffDragIfNeeded(geo: geo, columnWidth: columnWidth, appHeight: appHeight, iconSize: iconSize)
                             }
                         }
@@ -391,6 +406,15 @@ struct LaunchpadView: View {
                     }
                     .opacity(isFolderOpen ? 0.1 : 1)
                     .allowsHitTesting(!isFolderOpen)
+                }
+
+                if appStore.isLayoutEditing && !isFolderOpen && appStore.searchText.isEmpty {
+                    Label(localization.text(.editLayout), systemImage: "pencil.and.outline")
+                        .font(.footnote.weight(.semibold))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(.regularMaterial, in: Capsule())
+                        .foregroundStyle(.primary)
                 }
                 
                 // 在页面指示圆点下方添加动态padding
@@ -519,6 +543,11 @@ struct LaunchpadView: View {
           }
           .onChange(of: isSearchFieldFocused) { _, focused in
              if focused { isKeyboardNavigationActive = false }
+         }
+         .onChange(of: appStore.isLayoutEditing) { _, editing in
+             if !editing {
+                 finishDragInteraction(saveOrder: false)
+             }
          }
 
            .onAppear {
@@ -711,6 +740,7 @@ struct LaunchpadView: View {
 
     // MARK: - Handoff drag from folder
     private func startHandoffDragIfNeeded(geo: GeometryProxy, columnWidth: CGFloat, appHeight: CGFloat, iconSize: CGFloat) {
+        guard appStore.isLayoutEditing else { return }
         guard draggingItem == nil, let app = appStore.handoffDraggingApp else { return }
         // 更新几何上下文
         captureGridGeometry(geo, columnWidth: columnWidth, appHeight: appHeight, iconSize: iconSize)
@@ -1128,9 +1158,21 @@ extension LaunchpadView {
             .matchedGeometryEffect(id: item.id, in: reorderNamespace)
             // 保持稳定的视图身份，避免在文件夹更新后中断拖拽手势
             .id(item.id)
+            .overlay {
+                if appStore.isLayoutEditing,
+                   draggingItem != nil,
+                   draggingItem != item,
+                   isDragGuideVisible(for: globalIndex, isFolderTarget: isCenterCreatingTarget) {
+                    DragZoneGuide(
+                        mode: isCenterCreatingTarget ? .folder : .swap,
+                        folderText: localization.text(.folderZone),
+                        swapText: localization.text(.swapZone)
+                    )
+                }
+            }
 
 
-            if appStore.searchText.isEmpty && !isFolderOpen {
+            if appStore.isLayoutEditing && appStore.searchText.isEmpty && !isFolderOpen {
                 let isDraggingThisTile = (draggingItem == item)
 
                 base
@@ -1291,6 +1333,11 @@ extension LaunchpadView {
         let iconAndLabelHeight = iconSize + 8 + 34
         let topPadding = max(0, (appHeight - iconAndLabelHeight) / 2) + 8
         return topPadding + iconSize / 2
+    }
+
+    private func isDragGuideVisible(for index: Int, isFolderTarget: Bool) -> Bool {
+        if isFolderTarget { return true }
+        return pendingDropIndex == index || reorderCandidateIndex == index
     }
 }
 
@@ -1662,6 +1709,51 @@ struct DragPreviewItem: View {
     }
 }
 
+struct DragZoneGuide: View {
+    enum Mode {
+        case folder
+        case swap
+    }
+
+    let mode: Mode
+    let folderText: String
+    let swapText: String
+
+    private var tint: Color {
+        switch mode {
+        case .folder: return .blue
+        case .swap: return .orange
+        }
+    }
+
+    private var title: String {
+        switch mode {
+        case .folder: return folderText
+        case .swap: return swapText
+        }
+    }
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .stroke(tint.opacity(0.9), style: StrokeStyle(lineWidth: 2, dash: mode == .swap ? [6, 5] : []))
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(tint.opacity(0.12))
+            )
+            .overlay(alignment: .top) {
+                Label(title, systemImage: mode == .folder ? "folder.badge.plus" : "arrow.left.arrow.right")
+                    .font(.caption2.weight(.semibold))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.regularMaterial, in: Capsule())
+                    .foregroundStyle(tint)
+                    .offset(y: -8)
+            }
+            .padding(6)
+            .allowsHitTesting(false)
+    }
+}
+
 func arrowDelta(for keyCode: UInt16) -> (dx: Int, dy: Int)? {
     switch keyCode {
     case 123: return (-1, 0) // left
@@ -1688,6 +1780,7 @@ extension LaunchpadView {
     
     // MARK: - 简化的拖拽处理函数
     private func handleDragChange(_ value: DragGesture.Value, item: LaunchpadItem, in containerSize: CGSize, columnWidth: CGFloat, appHeight: CGFloat, iconSize: CGFloat) {
+        guard appStore.isLayoutEditing else { return }
         // 初始化拖拽
         if draggingItem == nil {
             var tx = Transaction(); tx.disablesAnimations = true
@@ -1707,6 +1800,10 @@ extension LaunchpadView {
 
     // 统一的拖拽结束处理逻辑（普通拖拽与接力拖拽共用）
     private func finalizeDragOperation(containerSize: CGSize, columnWidth: CGFloat, appHeight: CGFloat, iconSize: CGFloat) {
+        guard appStore.isLayoutEditing else {
+            finishDragInteraction(saveOrder: false)
+            return
+        }
         guard let dragging = draggingItem else { return }
         
         // 结束前取消任何预定的重排，避免误触发

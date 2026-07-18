@@ -35,7 +35,7 @@ Use this checklist to track future features. When the 2.0.0 roadmap is complete,
   - Support sorting apps inside folders.
   - Add folder layout locking.
 
-- [ ] 7. Layout Lock / Edit Mode
+- [x] 7. Layout Lock / Edit Mode
   - Add a layout lock to prevent accidental dragging.
   - Require Edit Mode before users can reorder apps or create folders.
   - Show drag grid guidance that explains folder creation zones and swap zones while dragging.
@@ -59,7 +59,7 @@ Use this checklist to track future features. When the 2.0.0 roadmap is complete,
 - [x] Update UX Improvements
 - [x] Cloud Sync Auto Backup
 - [x] Profile Version History
-- [ ] Layout Lock / Edit Mode
+- [x] Layout Lock / Edit Mode
 - [ ] Search Command Palette
 - [ ] Diagnostics / Support Panel
 - [ ] Performance / Large App Library Polish

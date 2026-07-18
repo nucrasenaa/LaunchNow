@@ -256,6 +256,12 @@ enum L10nKey: String {
     case includeFolderApps
     case search
     case noAppsFound
+    case layoutLocked
+    case editLayout
+    case doneEditingLayout
+    case layoutLockedHint
+    case folderZone
+    case swapZone
     case folderName
     case untitledFolder
     case categoryDeveloper
@@ -514,6 +520,12 @@ final class LocalizationManager: ObservableObject {
             .includeFolderApps: "Include apps inside folders",
             .search: "Search",
             .noAppsFound: "No apps found",
+            .layoutLocked: "Layout locked",
+            .editLayout: "Edit layout",
+            .doneEditingLayout: "Done editing",
+            .layoutLockedHint: "Turn on Edit Layout before dragging apps, reordering, or creating folders.",
+            .folderZone: "Folder",
+            .swapZone: "Swap",
             .folderName: "Folder Name",
             .untitledFolder: "Untitled",
             .categoryDeveloper: "Developer",
@@ -724,6 +736,12 @@ final class LocalizationManager: ObservableObject {
             .includeFolderApps: "รวมแอปที่อยู่ในโฟลเดอร์",
             .search: "ค้นหา",
             .noAppsFound: "ไม่พบแอป",
+            .layoutLocked: "ล็อกเลย์เอาต์",
+            .editLayout: "แก้ไขเลย์เอาต์",
+            .doneEditingLayout: "เสร็จสิ้น",
+            .layoutLockedHint: "เปิดแก้ไขเลย์เอาต์ก่อนลากแอป จัดตำแหน่ง หรือสร้างโฟลเดอร์",
+            .folderZone: "โฟลเดอร์",
+            .swapZone: "สลับตำแหน่ง",
             .folderName: "ชื่อโฟลเดอร์",
             .untitledFolder: "ไม่มีชื่อ",
             .categoryDeveloper: "Developer",

@@ -295,14 +295,16 @@ extension FolderView {
 
         let isDraggingThisTile = (draggingApp == app)
 
-        base
+        let content = base
             .opacity(isDraggingThisTile ? 0 : 1)
             .allowsHitTesting(!isDraggingThisTile)
             .animation(LNAnimations.springFast, value: isSelected)
-            .simultaneousGesture(
+
+        if appStore.isLayoutEditing {
+            content.simultaneousGesture(
                 DragGesture(minimumDistance: 2, coordinateSpace: .named("folderGrid"))
                     .onChanged { value in
-                        // 在编辑状态下禁用拖拽
+                        guard appStore.isLayoutEditing else { return }
                         if isEditingName { return }
                         
                         if draggingApp == nil {
@@ -363,7 +365,11 @@ extension FolderView {
                         }
                     }
                     .onEnded { _ in
-                        // 在编辑状态下不处理拖拽结束
+                        guard appStore.isLayoutEditing else {
+                            draggingApp = nil
+                            pendingDropIndex = nil
+                            return
+                        }
                         if isEditingName { return }
                         
                         guard let dragging = draggingApp else { return }
@@ -411,6 +417,9 @@ extension FolderView {
                         }
                     }
             )
+        } else {
+            content
+        }
     }
 
     @ViewBuilder
