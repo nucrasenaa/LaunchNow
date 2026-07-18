@@ -9,12 +9,12 @@ Use this checklist to track future features. When the 2.0.0 roadmap is complete,
   - Show readable error details or logs when update checks, downloads, or installs fail.
   - Add an auto update button so users can trigger the automatic update flow directly.
 
-- [ ] 2. Cloud Sync Auto Backup
+- [x] 2. Cloud Sync Auto Backup
   - Automatically back up profiles when users save a profile or change the layout.
   - Detect when the cloud folder has newer data than local profiles.
   - Add conflict handling before overwriting local or cloud profile data.
 
-- [ ] 3. Profile Version History
+- [x] 3. Profile Version History
   - Keep recent profile snapshots, such as the latest 5-10 versions.
   - Let users restore a previous profile snapshot.
   - Make it easy to recover after accidental layout changes.
@@ -57,8 +57,8 @@ Use this checklist to track future features. When the 2.0.0 roadmap is complete,
 ## Suggested 2.0.0 Order
 
 - [x] Update UX Improvements
-- [ ] Cloud Sync Auto Backup
-- [ ] Profile Version History
+- [x] Cloud Sync Auto Backup
+- [x] Profile Version History
 - [ ] Layout Lock / Edit Mode
 - [ ] Search Command Palette
 - [ ] Diagnostics / Support Panel

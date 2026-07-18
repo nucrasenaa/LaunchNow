@@ -51,6 +51,13 @@ private enum AutoOrganizeCategory: Int, CaseIterable {
 }
 
 final class AppStore: ObservableObject {
+    enum CloudBackupResult: Equatable {
+        case success
+        case conflict(Date)
+        case noCloudFolder
+        case failed
+    }
+
     struct ProfileSummary: Identifiable, Codable, Equatable {
         let id: String
         var name: String
@@ -58,9 +65,27 @@ final class AppStore: ObservableObject {
         var updatedAt: Date
     }
 
+    struct ProfileHistoryEntry: Identifiable, Codable, Equatable {
+        let id: String
+        var reason: String
+        var createdAt: Date
+    }
+
     private struct ProfileDocument: Codable {
         var summary: ProfileSummary
         var snapshot: ProfileSnapshot
+    }
+
+    private struct ProfileHistoryDocument: Codable {
+        var entry: ProfileHistoryEntry
+        var snapshot: ProfileSnapshot
+    }
+
+    private struct CloudBackupManifest: Codable {
+        var app: String
+        var updatedAt: Date
+        var profileCount: Int
+        var reason: String
     }
 
     private struct ProfileSnapshot: Codable {
@@ -102,8 +127,15 @@ final class AppStore: ObservableObject {
     @Published var folders: [FolderInfo] = []
     @Published var items: [LaunchpadItem] = []
     @Published private(set) var profiles: [ProfileSummary] = []
+    @Published private(set) var profileHistory: [ProfileHistoryEntry] = []
     @Published private(set) var cloudBackupFolderPath: String?
     @Published private(set) var lastCloudBackupAt: Date?
+    @Published private(set) var cloudBackupConflictDate: Date?
+    @Published var isCloudAutoBackupEnabled: Bool = true {
+        didSet {
+            UserDefaults.standard.set(isCloudAutoBackupEnabled, forKey: Self.cloudAutoBackupEnabledDefaultsKey)
+        }
+    }
     @Published var isSetting = false
     @Published var currentPage = 0
     @Published var searchText: String = ""
@@ -225,6 +257,10 @@ final class AppStore: ObservableObject {
     private let refreshQueue = DispatchQueue(label: "app.store.refresh", qos: .userInitiated)
     private var gridRefreshWorkItem: DispatchWorkItem?
     private var rescanWorkItem: DispatchWorkItem?
+    private var cloudAutoBackupWorkItem: DispatchWorkItem?
+    private var isPerformingCloudBackup = false
+    private var isRestoringProfileHistory = false
+    private var lastProfileHistorySnapshotData: Data?
     private let fsEventsQueue = DispatchQueue(label: "app.store.fsevents")
     
     // 计算属性：每页项目数（由行列决定）
@@ -254,6 +290,8 @@ final class AppStore: ObservableObject {
     private static let customBackgroundImagePathDefaultsKey = "customBackgroundImagePath"
     private static let cloudBackupFolderPathDefaultsKey = "cloudBackupFolderPath"
     private static let lastCloudBackupAtDefaultsKey = "lastCloudBackupAt"
+    private static let cloudAutoBackupEnabledDefaultsKey = "cloudAutoBackupEnabled"
+    private static let maxProfileHistoryCount = 10
     private var isInitializingCustomPaths = false
     
     private var applicationSearchPaths: [String] {
@@ -314,6 +352,11 @@ final class AppStore: ObservableObject {
         if let savedCloudBackupDate = UserDefaults.standard.object(forKey: Self.lastCloudBackupAtDefaultsKey) as? Date {
             self.lastCloudBackupAt = savedCloudBackupDate
         }
+        if UserDefaults.standard.object(forKey: Self.cloudAutoBackupEnabledDefaultsKey) == nil {
+            self.isCloudAutoBackupEnabled = true
+        } else {
+            self.isCloudAutoBackupEnabled = UserDefaults.standard.bool(forKey: Self.cloudAutoBackupEnabledDefaultsKey)
+        }
         
         isInitializingCustomPaths = true
         let storedCustomPaths = UserDefaults.standard.array(forKey: Self.customSearchPathsDefaultsKey) as? [String] ?? []
@@ -332,6 +375,7 @@ final class AppStore: ObservableObject {
         isInitializingCustomPaths = false
         UserDefaults.standard.set(uniqueCustom, forKey: Self.customSearchPathsDefaultsKey)
         reloadProfiles()
+        reloadProfileHistory()
     }
 
     private func applyGridChangeSideEffects() {
@@ -411,6 +455,36 @@ final class AppStore: ObservableObject {
         }
     }
 
+    func reloadProfileHistory() {
+        do {
+            let directory = try profileHistoryRootDirectoryURL()
+            let historyDirectories = try FileManager.default.contentsOfDirectory(
+                at: directory,
+                includingPropertiesForKeys: nil
+            )
+            var loaded: [ProfileHistoryEntry] = []
+            var latestDocument: ProfileHistoryDocument?
+            for historyDirectory in historyDirectories {
+                let documentURL = profileHistoryDocumentURL(in: historyDirectory)
+                guard FileManager.default.fileExists(atPath: documentURL.path) else { continue }
+                let data = try Data(contentsOf: documentURL)
+                let document = try JSONDecoder.profileDecoder.decode(ProfileHistoryDocument.self, from: data)
+                loaded.append(document.entry)
+                if latestDocument == nil || document.entry.createdAt > latestDocument!.entry.createdAt {
+                    latestDocument = document
+                }
+            }
+            profileHistory = loaded.sorted { $0.createdAt > $1.createdAt }
+            if let latestDocument {
+                lastProfileHistorySnapshotData = try? JSONEncoder.prettyProfileEncoder.encode(latestDocument.snapshot)
+            }
+            try pruneProfileHistoryIfNeeded()
+        } catch {
+            profileHistory = []
+            lastProfileHistorySnapshotData = nil
+        }
+    }
+
     func saveCurrentProfile(named rawName: String) {
         let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return }
@@ -431,6 +505,7 @@ final class AppStore: ObservableObject {
             let data = try JSONEncoder.prettyProfileEncoder.encode(document)
             try data.write(to: profileDocumentURL(in: directory), options: [.atomic])
             reloadProfiles()
+            scheduleCloudAutoBackup(reason: "profile saved")
         } catch {
             NSSound.beep()
         }
@@ -450,6 +525,7 @@ final class AppStore: ObservableObject {
             let encoded = try JSONEncoder.prettyProfileEncoder.encode(document)
             try encoded.write(to: documentURL, options: [.atomic])
             reloadProfiles()
+            scheduleCloudAutoBackup(reason: "profile renamed")
         } catch {
             NSSound.beep()
         }
@@ -462,6 +538,7 @@ final class AppStore: ObservableObject {
                 try FileManager.default.removeItem(at: directory)
             }
             reloadProfiles()
+            scheduleCloudAutoBackup(reason: "profile deleted")
         } catch {
             NSSound.beep()
         }
@@ -472,6 +549,7 @@ final class AppStore: ObservableObject {
             let directory = try profileDirectoryURL(for: id)
             let data = try Data(contentsOf: profileDocumentURL(in: directory))
             var document = try JSONDecoder.profileDecoder.decode(ProfileDocument.self, from: data)
+            recordProfileHistorySnapshot(reason: "beforeProfileApply")
             try restoreProfileAssets(from: directory, snapshot: document.snapshot)
             applyProfileSnapshot(document.snapshot)
 
@@ -479,6 +557,34 @@ final class AppStore: ObservableObject {
             let encoded = try JSONEncoder.prettyProfileEncoder.encode(document)
             try encoded.write(to: profileDocumentURL(in: directory), options: [.atomic])
             reloadProfiles()
+        } catch {
+            NSSound.beep()
+        }
+    }
+
+    func restoreProfileHistory(id: String) {
+        do {
+            let directory = try profileHistoryDirectoryURL(for: id)
+            let data = try Data(contentsOf: profileHistoryDocumentURL(in: directory))
+            let document = try JSONDecoder.profileDecoder.decode(ProfileHistoryDocument.self, from: data)
+            isRestoringProfileHistory = true
+            defer { isRestoringProfileHistory = false }
+            try restoreProfileAssets(from: directory, snapshot: document.snapshot)
+            applyProfileSnapshot(document.snapshot)
+            lastProfileHistorySnapshotData = try? JSONEncoder.prettyProfileEncoder.encode(document.snapshot)
+            reloadProfileHistory()
+        } catch {
+            NSSound.beep()
+        }
+    }
+
+    func deleteProfileHistory(id: String) {
+        do {
+            let directory = try profileHistoryDirectoryURL(for: id)
+            if FileManager.default.fileExists(atPath: directory.path) {
+                try FileManager.default.removeItem(at: directory)
+            }
+            reloadProfileHistory()
         } catch {
             NSSound.beep()
         }
@@ -493,46 +599,124 @@ final class AppStore: ObservableObject {
         }
         cloudBackupFolderPath = normalizedPath
         UserDefaults.standard.set(normalizedPath, forKey: Self.cloudBackupFolderPathDefaultsKey)
+        refreshCloudBackupConflictState()
     }
 
     func clearCloudBackupFolder() {
         cloudBackupFolderPath = nil
         lastCloudBackupAt = nil
+        cloudBackupConflictDate = nil
+        cloudAutoBackupWorkItem?.cancel()
         UserDefaults.standard.removeObject(forKey: Self.cloudBackupFolderPathDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.lastCloudBackupAtDefaultsKey)
     }
 
-    func backupProfilesToCloud() -> Bool {
+    @discardableResult
+    func backupProfilesToCloud(force: Bool = false, saveBeforeBackup: Bool = true, reason: String = "manual backup") -> CloudBackupResult {
+        guard cloudBackupFolderPath != nil else { return .noCloudFolder }
         do {
-            saveAllOrder()
+            if !force, let conflictDate = cloudBackupConflictDate ?? cloudBackupUpdatedAtIfNewerThanLocal() {
+                cloudBackupConflictDate = conflictDate
+                return .conflict(conflictDate)
+            }
+            isPerformingCloudBackup = true
+            defer { isPerformingCloudBackup = false }
+            if saveBeforeBackup {
+                saveAllOrder()
+            }
             let source = try profilesDirectoryURL()
             let destination = try cloudProfilesDirectoryURL()
             try copyDirectoryIfPresent(from: source, to: destination)
-            try writeCloudBackupManifest()
             let now = Date()
+            try writeCloudBackupManifest(updatedAt: now, reason: reason)
             lastCloudBackupAt = now
+            cloudBackupConflictDate = nil
             UserDefaults.standard.set(now, forKey: Self.lastCloudBackupAtDefaultsKey)
-            return true
+            return .success
         } catch {
             NSSound.beep()
-            return false
+            return .failed
         }
     }
 
-    func restoreProfilesFromCloud() -> Bool {
+    func restoreProfilesFromCloud() -> CloudBackupResult {
         do {
             let source = try cloudProfilesDirectoryURL()
             guard FileManager.default.fileExists(atPath: source.path) else {
                 NSSound.beep()
-                return false
+                return .failed
             }
             let destination = try profilesDirectoryURL()
             try copyDirectoryIfPresent(from: source, to: destination)
             reloadProfiles()
-            return true
+            let restoredAt = cloudBackupManifest()?.updatedAt ?? Date()
+            lastCloudBackupAt = restoredAt
+            cloudBackupConflictDate = nil
+            UserDefaults.standard.set(restoredAt, forKey: Self.lastCloudBackupAtDefaultsKey)
+            return .success
         } catch {
             NSSound.beep()
-            return false
+            return .failed
+        }
+    }
+
+    func refreshCloudBackupConflictState() {
+        cloudBackupConflictDate = cloudBackupUpdatedAtIfNewerThanLocal()
+    }
+
+    private func scheduleCloudAutoBackup(reason: String) {
+        guard isCloudAutoBackupEnabled, cloudBackupFolderPath != nil, !profiles.isEmpty, !isPerformingCloudBackup else { return }
+        cloudAutoBackupWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                let result = self.backupProfilesToCloud(force: false, saveBeforeBackup: false, reason: reason)
+                if case .conflict(let date) = result {
+                    self.cloudBackupConflictDate = date
+                }
+            }
+        }
+        cloudAutoBackupWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4, execute: workItem)
+    }
+
+    private func recordProfileHistorySnapshot(reason: String) {
+        guard !isRestoringProfileHistory, !items.isEmpty else { return }
+
+        do {
+            let snapshot = makeProfileSnapshot()
+            let snapshotData = try JSONEncoder.prettyProfileEncoder.encode(snapshot)
+            guard snapshotData != lastProfileHistorySnapshotData else { return }
+
+            let now = Date()
+            let entry = ProfileHistoryEntry(id: UUID().uuidString, reason: reason, createdAt: now)
+            let directory = try profileHistoryDirectoryURL(for: entry.id)
+            if FileManager.default.fileExists(atPath: directory.path) {
+                try FileManager.default.removeItem(at: directory)
+            }
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try copyCurrentProfileAssets(to: directory)
+
+            let document = ProfileHistoryDocument(entry: entry, snapshot: snapshot)
+            let data = try JSONEncoder.prettyProfileEncoder.encode(document)
+            try data.write(to: profileHistoryDocumentURL(in: directory), options: [.atomic])
+            lastProfileHistorySnapshotData = snapshotData
+            reloadProfileHistory()
+        } catch {
+            print("LaunchNow: Failed to record profile history snapshot: \(error)")
+        }
+    }
+
+    private func pruneProfileHistoryIfNeeded() throws {
+        let entriesToRemove = profileHistory.dropFirst(Self.maxProfileHistoryCount)
+        for entry in entriesToRemove {
+            let directory = try profileHistoryDirectoryURL(for: entry.id)
+            if FileManager.default.fileExists(atPath: directory.path) {
+                try FileManager.default.removeItem(at: directory)
+            }
+        }
+        if !entriesToRemove.isEmpty {
+            profileHistory = Array(profileHistory.prefix(Self.maxProfileHistoryCount))
         }
     }
 
@@ -724,6 +908,22 @@ final class AppStore: ObservableObject {
         directory.appendingPathComponent("Profile.json", conformingTo: .json)
     }
 
+    private func profileHistoryRootDirectoryURL() throws -> URL {
+        let directory = try appSupportDirectoryURL().appendingPathComponent("Profile History", isDirectory: true)
+        if !FileManager.default.fileExists(atPath: directory.path) {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        }
+        return directory
+    }
+
+    private func profileHistoryDirectoryURL(for id: String) throws -> URL {
+        try profileHistoryRootDirectoryURL().appendingPathComponent(id, isDirectory: true)
+    }
+
+    private func profileHistoryDocumentURL(in directory: URL) -> URL {
+        directory.appendingPathComponent("ProfileHistory.json", conformingTo: .json)
+    }
+
     private func cloudBackupRootURL() throws -> URL {
         guard let cloudBackupFolderPath else {
             throw CocoaError(.fileNoSuchFile)
@@ -740,13 +940,41 @@ final class AppStore: ObservableObject {
         try cloudBackupRootURL().appendingPathComponent("Profiles", isDirectory: true)
     }
 
-    private func writeCloudBackupManifest() throws {
+    private func cloudBackupManifest() -> CloudBackupManifest? {
+        do {
+            let manifestURL = try cloudBackupRootURL().appendingPathComponent("CloudBackup.json", conformingTo: .json)
+            guard FileManager.default.fileExists(atPath: manifestURL.path) else { return nil }
+            let data = try Data(contentsOf: manifestURL)
+            if let manifest = try? JSONDecoder.profileDecoder.decode(CloudBackupManifest.self, from: data) {
+                return manifest
+            }
+            guard
+                let object = try JSONSerialization.jsonObject(with: data) as? [String: String],
+                let updatedAtString = object["updatedAt"],
+                let updatedAt = ISO8601DateFormatter().date(from: updatedAtString)
+            else {
+                return nil
+            }
+            return CloudBackupManifest(
+                app: object["app"] ?? "LaunchNow",
+                updatedAt: updatedAt,
+                profileCount: Int(object["profileCount"] ?? "") ?? 0,
+                reason: "legacy backup"
+            )
+        } catch {
+            return nil
+        }
+    }
+
+    private func cloudBackupUpdatedAtIfNewerThanLocal() -> Date? {
+        guard let cloudUpdatedAt = cloudBackupManifest()?.updatedAt else { return nil }
+        guard let lastCloudBackupAt else { return cloudUpdatedAt }
+        return cloudUpdatedAt.timeIntervalSince(lastCloudBackupAt) > 1 ? cloudUpdatedAt : nil
+    }
+
+    private func writeCloudBackupManifest(updatedAt: Date, reason: String) throws {
         let manifestURL = try cloudBackupRootURL().appendingPathComponent("CloudBackup.json", conformingTo: .json)
-        let manifest: [String: String] = [
-            "app": "LaunchNow",
-            "updatedAt": ISO8601DateFormatter().string(from: Date()),
-            "profileCount": "\(profiles.count)"
-        ]
+        let manifest = CloudBackupManifest(app: "LaunchNow", updatedAt: updatedAt, profileCount: profiles.count, reason: reason)
         let data = try JSONEncoder.prettyProfileEncoder.encode(manifest)
         try data.write(to: manifestURL, options: [.atomic])
     }
@@ -2400,6 +2628,8 @@ final class AppStore: ObservableObject {
             }
             try modelContext.save()
             print("LaunchNow: Successfully saved order data")
+            recordProfileHistorySnapshot(reason: "layoutChanged")
+            scheduleCloudAutoBackup(reason: "layout changed")
             do {
                 let legacy = try modelContext.fetch(FetchDescriptor<TopItemData>())
                 for row in legacy { modelContext.delete(row) }

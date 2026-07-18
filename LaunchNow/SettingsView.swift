@@ -886,6 +886,30 @@ struct SettingsView: View {
             Divider().padding(.vertical, 4)
 
             VStack(alignment: .leading, spacing: 10) {
+                Text(localization.text(.profileVersionHistory))
+                    .font(.headline)
+                Text(localization.text(.profileVersionHistoryDescription))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+
+                if appStore.profileHistory.isEmpty {
+                    Text(localization.text(.noProfileHistory))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .padding(.vertical, 6)
+                } else {
+                    VStack(spacing: 8) {
+                        ForEach(appStore.profileHistory) { entry in
+                            profileHistoryRow(entry)
+                        }
+                    }
+                    .frame(maxWidth: 560)
+                }
+            }
+
+            Divider().padding(.vertical, 4)
+
+            VStack(alignment: .leading, spacing: 10) {
                 Text(localization.text(.cloudBackup))
                     .font(.headline)
                 Text(localization.text(.cloudBackupDescription))
@@ -911,6 +935,37 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                Toggle(isOn: $appStore.isCloudAutoBackupEnabled) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(localization.text(.cloudAutoBackup))
+                        Text(localization.text(.cloudAutoBackupDescription))
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .toggleStyle(.checkbox)
+                .disabled(appStore.cloudBackupFolderPath == nil)
+
+                if let conflictDate = appStore.cloudBackupConflictDate {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label(
+                            localization.text(.cloudBackupConflictFormat, profileDateFormatter.string(from: conflictDate)),
+                            systemImage: "exclamationmark.triangle"
+                        )
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.orange)
+                        Text(localization.text(.cloudBackupConflictDescription))
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(10)
+                    .frame(maxWidth: 560, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.orange.opacity(0.12))
+                    )
+                }
+
                 if let cloudBackupStatusMessage {
                     Text(cloudBackupStatusMessage)
                         .font(.footnote)
@@ -930,9 +985,7 @@ struct SettingsView: View {
                         .buttonStyle(.bordered)
 
                         Button {
-                            cloudBackupStatusMessage = appStore.backupProfilesToCloud()
-                                ? localization.text(.cloudBackupComplete)
-                                : localization.text(.cloudBackupFailed)
+                            cloudBackupStatusMessage = cloudBackupMessage(for: appStore.backupProfilesToCloud())
                         } label: {
                             Label(localization.text(.backupNow), systemImage: "icloud.and.arrow.up")
                         }
@@ -942,14 +995,23 @@ struct SettingsView: View {
 
                     HStack(spacing: 10) {
                         Button {
-                            cloudBackupStatusMessage = appStore.restoreProfilesFromCloud()
-                                ? localization.text(.cloudRestoreComplete)
-                                : localization.text(.cloudRestoreFailed)
+                            cloudBackupStatusMessage = cloudBackupMessage(for: appStore.restoreProfilesFromCloud(), restoreSuccess: true)
                         } label: {
                             Label(localization.text(.restoreFromCloud), systemImage: "icloud.and.arrow.down")
                         }
                         .buttonStyle(.bordered)
                         .disabled(appStore.cloudBackupFolderPath == nil)
+
+                        if appStore.cloudBackupConflictDate != nil {
+                            Button {
+                                cloudBackupStatusMessage = cloudBackupMessage(
+                                    for: appStore.backupProfilesToCloud(force: true, reason: "replace cloud backup")
+                                )
+                            } label: {
+                                Label(localization.text(.replaceCloudBackup), systemImage: "exclamationmark.arrow.triangle.2.circlepath")
+                            }
+                            .buttonStyle(.bordered)
+                        }
 
                         if appStore.cloudBackupFolderPath != nil {
                             Button {
@@ -999,6 +1061,19 @@ struct SettingsView: View {
         if AppPanelPresenter.runModal(panel) == .OK, let url = panel.url {
             appStore.setCloudBackupFolder(url)
             cloudBackupStatusMessage = nil
+        }
+    }
+
+    private func cloudBackupMessage(for result: AppStore.CloudBackupResult, restoreSuccess: Bool = false) -> String {
+        switch result {
+        case .success:
+            return restoreSuccess ? localization.text(.cloudRestoreComplete) : localization.text(.cloudBackupComplete)
+        case .conflict(let date):
+            return localization.text(.cloudBackupConflictFormat, profileDateFormatter.string(from: date))
+        case .noCloudFolder:
+            return localization.text(.noCloudFolder)
+        case .failed:
+            return restoreSuccess ? localization.text(.cloudRestoreFailed) : localization.text(.cloudBackupFailed)
         }
     }
 
@@ -1061,6 +1136,52 @@ struct SettingsView: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(Color.primary.opacity(0.06))
         )
+    }
+
+    private func profileHistoryRow(_ entry: AppStore.ProfileHistoryEntry) -> some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(profileHistoryReasonText(entry.reason))
+                    .font(.body.weight(.semibold))
+                Text(profileDateFormatter.string(from: entry.createdAt))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Button {
+                appStore.restoreProfileHistory(id: entry.id)
+            } label: {
+                Label(localization.text(.restoreSnapshot), systemImage: "clock.arrow.circlepath")
+            }
+            .buttonStyle(.bordered)
+
+            Button {
+                appStore.deleteProfileHistory(id: entry.id)
+            } label: {
+                Image(systemName: "trash")
+                    .foregroundStyle(.red)
+            }
+            .buttonStyle(.bordered)
+            .help(localization.text(.deleteSnapshot))
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.primary.opacity(0.06))
+        )
+    }
+
+    private func profileHistoryReasonText(_ reason: String) -> String {
+        switch reason {
+        case "layoutChanged":
+            return localization.text(.layoutChangedHistoryReason)
+        case "beforeProfileApply":
+            return localization.text(.beforeProfileApplyHistoryReason)
+        default:
+            return reason
+        }
     }
 
     private var profileDateFormatter: DateFormatter {

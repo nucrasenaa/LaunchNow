@@ -174,8 +174,20 @@ enum L10nKey: String {
     case noProfiles
     case profilesDescription
     case updatedFormat
+    case profileVersionHistory
+    case profileVersionHistoryDescription
+    case noProfileHistory
+    case restoreSnapshot
+    case deleteSnapshot
+    case layoutChangedHistoryReason
+    case beforeProfileApplyHistoryReason
     case cloudBackup
     case cloudBackupDescription
+    case cloudAutoBackup
+    case cloudAutoBackupDescription
+    case cloudBackupConflictFormat
+    case cloudBackupConflictDescription
+    case replaceCloudBackup
     case chooseCloudFolder
     case changeCloudFolder
     case clearCloudFolder
@@ -420,8 +432,20 @@ final class LocalizationManager: ObservableObject {
             .noProfiles: "No profiles yet.",
             .profilesDescription: "Save multiple LaunchNow layouts and settings, then switch between them anytime.",
             .updatedFormat: "Updated %@",
+            .profileVersionHistory: "Profile Version History",
+            .profileVersionHistoryDescription: "Keep the latest 10 layout snapshots so you can restore a previous profile state.",
+            .noProfileHistory: "No profile history yet.",
+            .restoreSnapshot: "Restore Snapshot",
+            .deleteSnapshot: "Delete Snapshot",
+            .layoutChangedHistoryReason: "Layout changed",
+            .beforeProfileApplyHistoryReason: "Before profile restore",
             .cloudBackup: "Cloud Backup",
             .cloudBackupDescription: "Choose a synced folder such as iCloud Drive, Google Drive, Dropbox, or OneDrive to keep profile backups online.",
+            .cloudAutoBackup: "Auto backup profiles",
+            .cloudAutoBackupDescription: "Back up profiles automatically after profile saves or layout changes.",
+            .cloudBackupConflictFormat: "Cloud backup is newer (%@).",
+            .cloudBackupConflictDescription: "Restore from Cloud first, or choose Replace Cloud Backup to overwrite the newer cloud data.",
+            .replaceCloudBackup: "Replace Cloud Backup",
             .chooseCloudFolder: "Choose Folder",
             .changeCloudFolder: "Change Folder",
             .clearCloudFolder: "Clear Folder",
@@ -618,8 +642,20 @@ final class LocalizationManager: ObservableObject {
             .noProfiles: "ยังไม่มีโปรไฟล์",
             .profilesDescription: "บันทึกเลย์เอาต์และการตั้งค่า LaunchNow หลายชุด แล้วสลับใช้งานได้ทุกเวลา",
             .updatedFormat: "อัปเดต %@",
+            .profileVersionHistory: "ประวัติเวอร์ชันโปรไฟล์",
+            .profileVersionHistoryDescription: "เก็บ snapshot เลย์เอาต์ล่าสุด 10 ชุด เพื่อย้อนกลับไปยังสถานะโปรไฟล์ก่อนหน้าได้",
+            .noProfileHistory: "ยังไม่มีประวัติโปรไฟล์",
+            .restoreSnapshot: "กู้คืน Snapshot",
+            .deleteSnapshot: "ลบ Snapshot",
+            .layoutChangedHistoryReason: "เลย์เอาต์ถูกเปลี่ยน",
+            .beforeProfileApplyHistoryReason: "ก่อนกู้คืนโปรไฟล์",
             .cloudBackup: "สำรองข้อมูลบนคลาวด์",
             .cloudBackupDescription: "เลือกโฟลเดอร์ที่ซิงก์อยู่ เช่น iCloud Drive, Google Drive, Dropbox หรือ OneDrive เพื่อเก็บสำรองโปรไฟล์ออนไลน์",
+            .cloudAutoBackup: "สำรองโปรไฟล์อัตโนมัติ",
+            .cloudAutoBackupDescription: "สำรองโปรไฟล์อัตโนมัติหลังบันทึกโปรไฟล์หรือเปลี่ยนเลย์เอาต์",
+            .cloudBackupConflictFormat: "ข้อมูลสำรองบนคลาวด์ใหม่กว่า (%@)",
+            .cloudBackupConflictDescription: "กู้คืนจากคลาวด์ก่อน หรือเลือกแทนที่ข้อมูลสำรองบนคลาวด์เพื่อเขียนทับข้อมูลที่ใหม่กว่า",
+            .replaceCloudBackup: "แทนที่ข้อมูลสำรองบนคลาวด์",
             .chooseCloudFolder: "เลือกโฟลเดอร์",
             .changeCloudFolder: "เปลี่ยนโฟลเดอร์",
             .clearCloudFolder: "ล้างโฟลเดอร์",
