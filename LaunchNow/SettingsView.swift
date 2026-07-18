@@ -1221,6 +1221,16 @@ struct SettingsView: View {
                 }
                 .toggleStyle(.checkbox)
 
+                Toggle(isOn: $updateManager.isAutomaticInstallEnabled) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(localization.text(.automaticInstallUpdates))
+                        Text(localization.text(.automaticInstallUpdatesDescription))
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .toggleStyle(.checkbox)
+
                 HStack(spacing: 12) {
                     Button {
                         checkForUpdates()
@@ -1229,14 +1239,6 @@ struct SettingsView: View {
                     }
                     .buttonStyle(.bordered)
                     .disabled(isCheckingForUpdates)
-
-                    Button {
-                        autoUpdateNow()
-                    } label: {
-                        Label(localization.text(.autoUpdateNow), systemImage: "arrow.down.app")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(isCheckingForUpdates || isInstallingUpdate)
 
                     if let availableUpdate = availableUpdate ?? updateManager.automaticallyAvailableUpdate {
                         Button {

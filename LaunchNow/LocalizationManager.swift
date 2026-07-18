@@ -204,6 +204,8 @@ enum L10nKey: String {
     case aboutDescription
     case autoCheckUpdates
     case autoCheckUpdatesDescription
+    case automaticInstallUpdates
+    case automaticInstallUpdatesDescription
     case autoUpdateNow
     case updateStatus
     case updateStatusWaiting
@@ -468,6 +470,8 @@ final class LocalizationManager: ObservableObject {
             .aboutDescription: "A lightweight Launchpad-like app launcher.",
             .autoCheckUpdates: "Automatically check for updates",
             .autoCheckUpdatesDescription: "LaunchNow checks in the background and notifies you when a new release is available.",
+            .automaticInstallUpdates: "Automatically download and install updates",
+            .automaticInstallUpdatesDescription: "When an automatic check finds a new release, LaunchNow downloads it and installs it automatically.",
             .autoUpdateNow: "Auto Update Now",
             .updateStatus: "Update Status",
             .updateStatusWaiting: "No automatic update check has run yet.",
@@ -684,6 +688,8 @@ final class LocalizationManager: ObservableObject {
             .aboutDescription: "ตัวเปิดแอปน้ำหนักเบาที่ให้ความรู้สึกคล้าย Launchpad",
             .autoCheckUpdates: "ตรวจหาอัปเดตอัตโนมัติ",
             .autoCheckUpdatesDescription: "LaunchNow จะตรวจในเบื้องหลังและแจ้งเตือนเมื่อมี release ใหม่",
+            .automaticInstallUpdates: "ดาวน์โหลดและติดตั้งอัปเดตอัตโนมัติ",
+            .automaticInstallUpdatesDescription: "เมื่อการตรวจอัตโนมัติเจอ release ใหม่ LaunchNow จะดาวน์โหลดและติดตั้งให้อัตโนมัติ",
             .autoUpdateNow: "อัปเดตอัตโนมัติตอนนี้",
             .updateStatus: "สถานะอัปเดต",
             .updateStatusWaiting: "ยังไม่มีการตรวจหาอัปเดตอัตโนมัติ",

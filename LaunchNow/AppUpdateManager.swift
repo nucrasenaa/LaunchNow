@@ -31,6 +31,7 @@ final class AppUpdateManager: ObservableObject {
     private let latestReleaseURL = URL(string: "https://api.github.com/repos/nucrasenaa/LaunchNow/releases/latest")!
     private let automaticCheckInterval: TimeInterval = 6 * 60 * 60
     private let automaticChecksEnabledKey = "automaticUpdateChecksEnabled"
+    private let automaticInstallsEnabledKey = "automaticUpdateInstallsEnabled"
     private let lastAutomaticCheckKey = "lastAutomaticUpdateCheckAt"
     private let lastNotifiedVersionKey = "lastNotifiedUpdateVersion"
     private var automaticUpdateTimer: Timer?
@@ -46,6 +47,14 @@ final class AppUpdateManager: ObservableObject {
             }
         }
     }
+    @Published var isAutomaticInstallEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(isAutomaticInstallEnabled, forKey: automaticInstallsEnabledKey)
+            if isAutomaticInstallEnabled, !isAutomaticCheckEnabled {
+                isAutomaticCheckEnabled = true
+            }
+        }
+    }
     @Published private(set) var automaticallyAvailableUpdate: AppUpdateInfo?
     @Published private(set) var lastAutomaticCheckAt: Date?
     @Published private(set) var lastAutomaticCheckFailed = false
@@ -57,6 +66,10 @@ final class AppUpdateManager: ObservableObject {
             isAutomaticCheckEnabled = true
         } else {
             isAutomaticCheckEnabled = UserDefaults.standard.bool(forKey: automaticChecksEnabledKey)
+        }
+        isAutomaticInstallEnabled = UserDefaults.standard.bool(forKey: automaticInstallsEnabledKey)
+        if isAutomaticInstallEnabled, !isAutomaticCheckEnabled {
+            isAutomaticCheckEnabled = true
         }
         lastAutomaticCheckAt = UserDefaults.standard.object(forKey: lastAutomaticCheckKey) as? Date
     }
@@ -188,6 +201,9 @@ final class AppUpdateManager: ObservableObject {
             }
             if let update {
                 await notifyUpdateAvailableIfNeeded(update)
+                if isAutomaticInstallEnabled {
+                    await installAutomatically(update)
+                }
             }
         } catch {
             let message = readableError(error)
@@ -195,6 +211,25 @@ final class AppUpdateManager: ObservableObject {
                 self.lastAutomaticCheckAt = now
                 self.lastAutomaticCheckFailed = true
                 self.recordUpdateLog(title: "Automatic check failed", detail: message, isError: true)
+            }
+        }
+    }
+
+    private func installAutomatically(_ update: AppUpdateInfo) async {
+        await MainActor.run {
+            self.recordUpdateLog(
+                title: "Automatic update",
+                detail: "Downloading and installing version \(update.version)."
+            )
+        }
+
+        do {
+            _ = try await downloadAndInstall(update)
+        } catch {
+            let message = readableError(error)
+            await MainActor.run {
+                self.lastAutomaticCheckFailed = true
+                self.recordUpdateLog(title: "Automatic update failed", detail: message, isError: true)
             }
         }
     }
