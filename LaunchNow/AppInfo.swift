@@ -5,6 +5,7 @@ struct AppInfo: Identifiable, Equatable, Hashable {
     let name: String
     let icon: NSImage
     let url: URL
+    let hasLoadedIcon: Bool
 
     // 使用应用路径作为稳定唯一标识
     var id: String { url.path }
@@ -18,11 +19,11 @@ struct AppInfo: Identifiable, Equatable, Hashable {
     }
 
     // MARK: - 创建 AppInfo
-    static func from(url: URL) -> AppInfo {
+    static func from(url: URL, loadIcon: Bool = true) -> AppInfo {
         let bundleName = localizedAppName(for: url)
         let name = CustomAppNameManager.shared.displayName(forAppURL: url, fallbackName: bundleName)
-        let icon = CustomAppIconManager.shared.icon(forAppURL: url)
-        return AppInfo(name: name, icon: icon, url: url)
+        let icon = loadIcon ? CustomAppIconManager.shared.icon(forAppURL: url) : AppIconProvider.placeholderIcon
+        return AppInfo(name: name, icon: icon, url: url, hasLoadedIcon: loadIcon)
     }
 
     var bundleCategoryIdentifier: String? {

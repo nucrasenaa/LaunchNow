@@ -1770,7 +1770,7 @@ struct DragPreviewItem: View {
     private var displayIcon: NSImage {
         switch item {
         case .app(let app):
-            return app.icon
+            return AppIconProvider.displayIcon(for: app)
         case .folder(let folder):
             return folder.icon(of: iconSize)
         case .empty:

@@ -60,15 +60,7 @@ struct FolderInfo: Identifiable, Equatable {
             let y = topY - CGFloat(rowTopFirst + 1) * tile - CGFloat(rowTopFirst) * spacing
             let iconRect = NSRect(x: x, y: y, width: tile, height: tile)
             
-            // 图标兜底：若应用图标尺寸为0，回退到系统文件图标
-            let iconToDraw: NSImage = {
-                if app.icon.size.width > 0 && app.icon.size.height > 0 {
-                    return app.icon
-                } else {
-                    return NSWorkspace.shared.icon(forFile: app.url.path)
-                }
-            }()
-            iconToDraw.draw(in: iconRect)
+            AppIconProvider.displayIcon(for: app).draw(in: iconRect)
         }
 
         return image
@@ -109,7 +101,7 @@ enum LaunchpadItem: Identifiable, Equatable {
     var icon: NSImage {
         switch self {
         case .app(let app):
-            return app.icon
+            return AppIconProvider.displayIcon(for: app)
         case .folder(let folder):
             let icon = folder.folderIcon
             return icon

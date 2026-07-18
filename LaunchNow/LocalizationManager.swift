@@ -200,6 +200,13 @@ enum L10nKey: String {
     case cloudBackupFailed
     case cloudRestoreComplete
     case cloudRestoreFailed
+    case diagnostics
+    case diagnosticsDescription
+    case diagnosticsSummary
+    case exportDebugInfo
+    case debugInfoExported
+    case debugInfoExportFailed
+    case dataPath
     case versionFormat
     case aboutDescription
     case autoCheckUpdates
@@ -471,6 +478,13 @@ final class LocalizationManager: ObservableObject {
             .cloudBackupFailed: "Could not backup profiles to the cloud folder.",
             .cloudRestoreComplete: "Profiles restored from the cloud folder.",
             .cloudRestoreFailed: "Could not restore profiles from the cloud folder.",
+            .diagnostics: "Diagnostics",
+            .diagnosticsDescription: "Export a readable debug report with app version, update status, data paths, sync state, and recent logs.",
+            .diagnosticsSummary: "Diagnostics Summary",
+            .exportDebugInfo: "Export Debug Info",
+            .debugInfoExported: "Debug info exported.",
+            .debugInfoExportFailed: "Could not export debug info: %@",
+            .dataPath: "Data path",
             .versionFormat: "Version %@",
             .aboutDescription: "A lightweight Launchpad-like app launcher.",
             .autoCheckUpdates: "Automatically check for updates",
@@ -694,6 +708,13 @@ final class LocalizationManager: ObservableObject {
             .cloudBackupFailed: "ไม่สามารถสำรองโปรไฟล์ไปยังโฟลเดอร์คลาวด์ได้",
             .cloudRestoreComplete: "กู้คืนโปรไฟล์จากโฟลเดอร์คลาวด์แล้ว",
             .cloudRestoreFailed: "ไม่สามารถกู้คืนโปรไฟล์จากโฟลเดอร์คลาวด์ได้",
+            .diagnostics: "วินิจฉัยปัญหา",
+            .diagnosticsDescription: "Export รายงาน debug แบบอ่านง่าย พร้อม app version, update status, data path, sync state และ logs ล่าสุด",
+            .diagnosticsSummary: "สรุปข้อมูลวินิจฉัย",
+            .exportDebugInfo: "Export Debug Info",
+            .debugInfoExported: "Export debug info แล้ว",
+            .debugInfoExportFailed: "ไม่สามารถ export debug info ได้: %@",
+            .dataPath: "ตำแหน่งข้อมูล",
             .versionFormat: "เวอร์ชัน %@",
             .aboutDescription: "ตัวเปิดแอปน้ำหนักเบาที่ให้ความรู้สึกคล้าย Launchpad",
             .autoCheckUpdates: "ตรวจหาอัปเดตอัตโนมัติ",

@@ -44,12 +44,12 @@ Use this checklist to track future features. When the 2.0.0 roadmap is complete,
   - Guide first-time users through language, shortcut, app scan, and fullscreen mode choices.
   - Reduce setup confusion for new users.
 
-- [ ] 9. Diagnostics / Support Panel
+- [x] 9. Diagnostics / Support Panel
   - Add an Export Debug Info button.
   - Show app version, update status, data path, last sync status, and relevant logs.
   - Make bug reports easier to inspect and reproduce.
 
-- [ ] 10. Performance / Large App Library Polish
+- [x] 10. Performance / Large App Library Polish
   - Optimize app scanning and cache refresh behavior.
   - Add lazy icon loading where it helps.
   - Reduce memory usage for large app libraries.
@@ -61,8 +61,8 @@ Use this checklist to track future features. When the 2.0.0 roadmap is complete,
 - [x] Profile Version History
 - [x] Layout Lock / Edit Mode
 - [x] Search Command Palette
-- [ ] Diagnostics / Support Panel
-- [ ] Performance / Large App Library Polish
+- [x] Diagnostics / Support Panel
+- [x] Performance / Large App Library Polish
 - [ ] Folder Customization More
 - [ ] App Usage / Smart Suggestions
 - [ ] Onboarding / First Run Setup

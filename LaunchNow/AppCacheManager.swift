@@ -29,7 +29,7 @@ final class AppCacheManager: ObservableObject {
     // MARK: - 公共接口
     
     /// 生成应用缓存 - 在应用启动或扫描后调用
-    func generateCache(from apps: [AppInfo], items: [LaunchpadItem]) {
+    func generateCache(from apps: [AppInfo], items: [LaunchpadItem], itemsPerPage: Int) {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
             
@@ -60,11 +60,8 @@ final class AppCacheManager: ObservableObject {
             // 缓存应用信息
             self.cacheAppInfos(uniqueApps)
             
-            // 缓存应用图标
-            self.cacheAppIcons(uniqueApps)
-            
             // 缓存网格布局数据
-            self.cacheGridLayout(items)
+            self.cacheGridLayout(items, itemsPerPage: itemsPerPage)
             
             DispatchQueue.main.async {
                 self.isCacheValid = true
@@ -161,11 +158,17 @@ final class AppCacheManager: ObservableObject {
         let endIndex = min(items.count, (currentPage + 2) * itemsPerPage)
         
         let relevantItems = Array(items[startIndex..<endIndex])
-        let appPaths = relevantItems.compactMap { item -> String? in
-            if case let .app(app) = item {
-                return app.url.path
+        var appPaths: [String] = []
+        appPaths.reserveCapacity(relevantItems.count)
+        for item in relevantItems {
+            switch item {
+            case .app(let app):
+                appPaths.append(app.url.path)
+            case .folder(let folder):
+                appPaths.append(contentsOf: folder.apps.prefix(4).map { $0.url.path })
+            case .empty:
+                break
             }
-            return nil
         }
         
         preloadIcons(for: appPaths)
@@ -198,7 +201,7 @@ final class AppCacheManager: ObservableObject {
     }
     
     /// 手动刷新缓存
-    func refreshCache(from apps: [AppInfo], items: [LaunchpadItem]) {
+    func refreshCache(from apps: [AppInfo], items: [LaunchpadItem], itemsPerPage: Int) {
         // 收集所有需要缓存的应用，包括文件夹内的应用
         var allApps: [AppInfo] = []
         allApps.append(contentsOf: apps)
@@ -220,7 +223,7 @@ final class AppCacheManager: ObservableObject {
             }
         }
         
-        generateCache(from: uniqueApps, items: items)
+        generateCache(from: uniqueApps, items: items, itemsPerPage: itemsPerPage)
     }
     
     // MARK: - 私有方法
@@ -237,6 +240,7 @@ final class AppCacheManager: ObservableObject {
     private func cacheAppIcons(_ apps: [AppInfo]) {
         cacheLock.lock()
         for app in apps {
+            guard app.hasLoadedIcon else { continue }
             let key = cacheKeyGenerator.generateIconKey(for: app.url.path)
             if let existingIndex = iconCacheOrder.firstIndex(of: key) {
                 iconCacheOrder.remove(at: existingIndex)
@@ -253,16 +257,15 @@ final class AppCacheManager: ObservableObject {
         cacheLock.unlock()
     }
     
-    private func cacheGridLayout(_ items: [LaunchpadItem]) {
+    private func cacheGridLayout(_ items: [LaunchpadItem], itemsPerPage: Int = 24) {
         // 缓存网格布局相关的计算数据
+        let safeItemsPerPage = max(1, itemsPerPage)
         let layoutData = GridLayoutCacheData(
             totalItems: items.count,
-            itemsPerPage: 24,
-            columns: 6,
-            rows: 4,
-            pageCount: (items.count + 23) / 24
+            itemsPerPage: safeItemsPerPage,
+            pageCount: (items.count + safeItemsPerPage - 1) / safeItemsPerPage
         )
-        let pageInfo = calculatePageInfo(for: items)
+        let pageInfo = calculatePageInfo(for: items, itemsPerPage: safeItemsPerPage)
         let key = cacheKeyGenerator.generateGridLayoutKey(for: "main")
         let pageKey = cacheKeyGenerator.generateGridLayoutKey(for: "pages")
         cacheLock.lock()
@@ -273,15 +276,15 @@ final class AppCacheManager: ObservableObject {
     }
     
     /// 计算页面信息
-    private func calculatePageInfo(for items: [LaunchpadItem]) -> [PageInfo] {
-        let itemsPerPage = 24
-        let pageCount = (items.count + itemsPerPage - 1) / itemsPerPage
+    private func calculatePageInfo(for items: [LaunchpadItem], itemsPerPage: Int) -> [PageInfo] {
+        let safeItemsPerPage = max(1, itemsPerPage)
+        let pageCount = (items.count + safeItemsPerPage - 1) / safeItemsPerPage
         
         var pages: [PageInfo] = []
         
         for pageIndex in 0..<pageCount {
-            let startIndex = pageIndex * itemsPerPage
-            let endIndex = min(startIndex + itemsPerPage, items.count)
+            let startIndex = pageIndex * safeItemsPerPage
+            let endIndex = min(startIndex + safeItemsPerPage, items.count)
             let pageItems = Array(items[startIndex..<endIndex])
             
             let appCount = pageItems.filter { if case .app = $0 { return true } else { return false } }.count
@@ -347,8 +350,6 @@ private struct CacheKeyGenerator {
 private struct GridLayoutCacheData {
     let totalItems: Int
     let itemsPerPage: Int
-    let columns: Int
-    let rows: Int
     let pageCount: Int
 }
 

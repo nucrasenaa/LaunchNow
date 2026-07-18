@@ -10,6 +10,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
     case apps
     case appSources
     case data
+    case diagnostics
     case about
 
     var id: String { rawValue }
@@ -22,6 +23,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
         case .apps: return localization.text(.appManagement)
         case .appSources: return localization.text(.appSources)
         case .data: return localization.text(.data)
+        case .diagnostics: return localization.text(.diagnostics)
         case .about: return localization.text(.about)
         }
     }
@@ -36,6 +38,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
             return "square.grid.2x2.fill"
         case .appSources: return "externaldrive.fill"
         case .data: return "tray.and.arrow.down.fill"
+        case .diagnostics: return "stethoscope"
         case .about: return "info.circle.fill"
         }
     }
@@ -48,6 +51,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
         case .apps: return .orange
         case .appSources: return .cyan
         case .data: return .teal
+        case .diagnostics: return .indigo
         case .about: return .gray
         }
     }
@@ -58,6 +62,7 @@ struct SettingsView: View {
     @ObservedObject private var localization = LocalizationManager.shared
     @ObservedObject private var keyboardShortcutManager = KeyboardShortcutManager.shared
     @ObservedObject private var updateManager = AppUpdateManager.shared
+    @ObservedObject private var cacheManager = AppCacheManager.shared
 
     // Sheet / alert states
     @State private var showResetConfirm = false
@@ -232,6 +237,7 @@ struct SettingsView: View {
                     case .apps: appsPane
                     case .appSources: appSourcesPane
                     case .data: dataPane
+                    case .diagnostics: diagnosticsPane
                     case .about: aboutPane
                     }
                 }
@@ -619,7 +625,7 @@ struct SettingsView: View {
             VStack(spacing: 10) {
                 ForEach(filteredAppsForRemoveList, id: \.id) { app in
                     HStack(spacing: 12) {
-                        Image(nsImage: app.icon)
+                        Image(nsImage: AppIconProvider.displayIcon(for: app))
                             .resizable()
                             .interpolation(.high)
                             .antialiased(true)
@@ -682,6 +688,9 @@ struct SettingsView: View {
                             .fill(Color.primary.opacity(0.06))
                     )
                     .help(app.url.path)
+                    .onAppear {
+                        AppCacheManager.shared.preloadIcons(for: [app.url.path])
+                    }
                 }
 
                 if filteredAppsForRemoveList.isEmpty {
@@ -1189,6 +1198,15 @@ struct SettingsView: View {
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
         return formatter
+    }
+
+    private var diagnosticsPane: some View {
+        DiagnosticsPaneView(
+            appStore: appStore,
+            updateManager: updateManager,
+            currentUpdateStatusText: currentUpdateStatusText,
+            appVersion: getVersion()
+        )
     }
 
     private var aboutPane: some View {
@@ -1806,6 +1824,7 @@ struct SettingsView: View {
 struct ImportAppsSheet: View {
     @ObservedObject var appStore: AppStore
     @ObservedObject private var localization = LocalizationManager.shared
+    @ObservedObject private var cacheManager = AppCacheManager.shared
     @Binding var isPresented: Bool
     @State private var selection = Set<String>()
     @State private var searchText: String = ""
@@ -1842,7 +1861,7 @@ struct ImportAppsSheet: View {
                                 }
                             )) {
                                 HStack(spacing: 8) {
-                                    Image(nsImage: app.icon)
+                                    Image(nsImage: AppIconProvider.displayIcon(for: app))
                                         .resizable()
                                         .interpolation(.high)
                                         .antialiased(true)
@@ -1859,6 +1878,9 @@ struct ImportAppsSheet: View {
                         }
                         .padding(.horizontal)
                         .help(app.url.path)
+                        .onAppear {
+                            AppCacheManager.shared.preloadIcons(for: [app.url.path])
+                        }
                     }
                 }
                 .padding(.vertical, 6)
@@ -1896,6 +1918,7 @@ struct ImportAppsSheet: View {
 struct RemoveAppsSheet: View { // unused by new UI, kept to avoid breaking references
     @ObservedObject var appStore: AppStore
     @ObservedObject private var localization = LocalizationManager.shared
+    @ObservedObject private var cacheManager = AppCacheManager.shared
     @Binding var isPresented: Bool
     @State private var selection = Set<String>()
     @State private var searchText: String = ""
@@ -1958,7 +1981,7 @@ struct RemoveAppsSheet: View { // unused by new UI, kept to avoid breaking refer
                                 }
                             )) {
                                 HStack(spacing: 8) {
-                                    Image(nsImage: app.icon)
+                                    Image(nsImage: AppIconProvider.displayIcon(for: app))
                                         .resizable()
                                         .interpolation(.high)
                                         .antialiased(true)
@@ -1975,6 +1998,9 @@ struct RemoveAppsSheet: View { // unused by new UI, kept to avoid breaking refer
                         }
                         .padding(.horizontal)
                         .help(app.url.path)
+                        .onAppear {
+                            AppCacheManager.shared.preloadIcons(for: [app.url.path])
+                        }
                     }
                 }
                 .padding(.vertical, 6)

@@ -3,6 +3,8 @@ import AppKit
 // Shared animations
 
 struct LaunchpadItemButton: View {
+    @ObservedObject private var cacheManager = AppCacheManager.shared
+
     let item: LaunchpadItem
     let iconSize: CGFloat
     let labelWidth: CGFloat
@@ -49,17 +51,7 @@ struct LaunchpadItemButton: View {
                     let renderedIcon: NSImage = {
                         switch item {
                         case .app(let app):
-                            // 尝试从缓存获取图标
-                            if let cachedIcon = AppCacheManager.shared.getCachedIcon(for: app.url.path), cachedIcon.size.width > 0, cachedIcon.size.height > 0 {
-                                return cachedIcon
-                            }
-                            // 使用自身图标或兜底到系统图标
-                            let base = app.icon
-                            if base.size.width > 0 && base.size.height > 0 {
-                                return base
-                            } else {
-                                return NSWorkspace.shared.icon(forFile: app.url.path)
-                            }
+                            return AppIconProvider.displayIcon(for: app)
                         case .folder(let folder):
                             return AppCacheManager.shared.getCachedFolderIcon(for: folder, side: iconSize)
                         case .empty:

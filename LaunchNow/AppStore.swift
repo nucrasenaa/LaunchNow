@@ -1872,7 +1872,7 @@ final class AppStore: ObservableObject {
     }
 
     private func appInfo(from url: URL) -> AppInfo {
-        return AppInfo.from(url: url)
+        return AppInfo.from(url: url, loadIcon: false)
     }
 
     // MARK: - Custom App Icons
@@ -2098,7 +2098,7 @@ final class AppStore: ObservableObject {
     private func refreshAppInfo(forAppPath appPath: String) {
         let url = URL(fileURLWithPath: appPath)
         guard FileManager.default.fileExists(atPath: url.path) else { return }
-        let refreshed = appInfo(from: url)
+        let refreshed = AppInfo.from(url: url, loadIcon: true)
 
         replaceAppInfo(refreshed, in: &availableApps)
         replaceAppInfo(refreshed, in: &apps)
@@ -2798,14 +2798,13 @@ final class AppStore: ObservableObject {
     // MARK: - 缓存管理
     private func generateCacheAfterScan() {
         if !cacheManager.isCacheValid {
-            cacheManager.generateCache(from: availableApps, items: items)
-        } else {
-            cacheManager.smartPreloadIcons(
-                for: items,
-                currentPage: currentPage,
-                itemsPerPage: itemsPerPage
-            )
+            cacheManager.generateCache(from: availableApps, items: items, itemsPerPage: itemsPerPage)
         }
+        cacheManager.smartPreloadIcons(
+            for: items,
+            currentPage: currentPage,
+            itemsPerPage: itemsPerPage
+        )
     }
     
     func refresh() {
@@ -2827,17 +2826,16 @@ final class AppStore: ObservableObject {
     var cacheStatistics: CacheStatistics { cacheManager.cacheStatistics }
     private func updateCacheAfterChanges() {
         if !cacheManager.isCacheValid {
-            cacheManager.generateCache(from: availableApps, items: items)
-        } else {
-            cacheManager.smartPreloadIcons(
-                for: items,
-                currentPage: currentPage,
-                itemsPerPage: itemsPerPage
-            )
+            cacheManager.generateCache(from: availableApps, items: items, itemsPerPage: itemsPerPage)
         }
+        cacheManager.smartPreloadIcons(
+            for: items,
+            currentPage: currentPage,
+            itemsPerPage: itemsPerPage
+        )
     }
     private func refreshCacheAfterFolderOperation() {
-        cacheManager.refreshCache(from: apps, items: items)
+        cacheManager.refreshCache(from: apps, items: items, itemsPerPage: itemsPerPage)
         if !searchText.isEmpty {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in self?.searchText = "" }
         }

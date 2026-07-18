@@ -46,7 +46,7 @@ struct CommandPaletteEntry: Identifiable, Equatable {
     var icon: NSImage {
         switch kind {
         case .app(let app):
-            return app.icon
+            return AppIconProvider.displayIcon(for: app)
         case .folder(let folder):
             return folder.icon(of: 36)
         case .file(let url):
@@ -65,6 +65,7 @@ struct CommandPaletteEntry: Identifiable, Equatable {
 }
 
 struct CommandPaletteView: View {
+    @ObservedObject private var cacheManager = AppCacheManager.shared
     @ObservedObject private var localization = LocalizationManager.shared
 
     let entries: [CommandPaletteEntry]
