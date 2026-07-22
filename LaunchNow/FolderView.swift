@@ -58,6 +58,10 @@ struct FolderView: View {
             }
         }
         .padding()
+        .background {
+            folderSurfaceBackground
+                .clipShape(RoundedRectangle(cornerRadius: 30))
+        }
         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 30))
         .transition(LNAnimations.folderOpenTransition)
         .onTapGesture {
@@ -111,8 +115,8 @@ struct FolderView: View {
     
     @ViewBuilder
     private var folderTitleSection: some View {
-        HStack {
-            Spacer()
+        HStack(alignment: .top, spacing: 12) {
+            Spacer(minLength: 0)
             VStack(spacing: 8) {
                 if isEditingName {
                     TextField(localization.text(.folderName), text: $folderName)
@@ -150,10 +154,164 @@ struct FolderView: View {
                             // 单击时不做任何操作，避免意外触发
                         }
                 }
+
+                HStack(spacing: 8) {
+                    folderColorMenu
+                    folderBackgroundMenu
+                    folderLockButton
+                    folderSortMenu
+
+                    Button {
+                        appStore.resetFolderCustomization(for: folder)
+                    } label: {
+                        Image(systemName: "arrow.counterclockwise")
+                    }
+                    .buttonStyle(.bordered)
+                    .help(localization.text(.resetFolderCustomization))
+                }
+
+                folderBackgroundImageControls
             }
-            Spacer()
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, titlePadding)
+    }
+
+    @ViewBuilder
+    private var folderSurfaceBackground: some View {
+        let customization = appStore.folderCustomization(for: folder)
+        switch customization.backgroundPreset {
+        case .glass:
+            Color.clear
+        case .tinted:
+            customization.colorPreset.tintColor.opacity(customization.colorPreset == .automatic ? 0.08 : 0.16)
+        case .solid:
+            customization.colorPreset.tintColor.opacity(customization.colorPreset == .automatic ? 0.12 : 0.28)
+        case .image:
+            if let image = appStore.folderBackgroundImage(for: folder) {
+                ZStack {
+                    Image(nsImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .opacity(customization.backgroundImageOpacity)
+                    customization.colorPreset.tintColor.opacity(customization.colorPreset == .automatic ? 0.05 : 0.12)
+                }
+            } else {
+                Color.clear
+            }
+        case .clear:
+            Color.clear
+        }
+    }
+
+    private var folderColorMenu: some View {
+        Menu {
+            ForEach(FolderColorPreset.allCases) { preset in
+                Button {
+                    appStore.setFolderColor(preset, for: folder)
+                } label: {
+                    Label(folderColorTitle(preset), systemImage: appStore.folderCustomization(for: folder).colorPreset == preset ? "checkmark" : "paintpalette")
+                }
+            }
+        } label: {
+            Image(systemName: "paintpalette")
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help(localization.text(.folderColor))
+    }
+
+    private var folderBackgroundMenu: some View {
+        Menu {
+            ForEach(FolderBackgroundPreset.allCases) { preset in
+                Button {
+                    if preset == .image {
+                        appStore.presentChooseFolderBackgroundImagePanel(for: folder)
+                    } else {
+                        appStore.setFolderBackground(preset, for: folder)
+                    }
+                } label: {
+                    Label(folderBackgroundTitle(preset), systemImage: appStore.folderCustomization(for: folder).backgroundPreset == preset ? "checkmark" : folderBackgroundIcon(preset))
+                }
+            }
+        } label: {
+            Image(systemName: "rectangle.fill")
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help(localization.text(.folderBackground))
+    }
+
+    @ViewBuilder
+    private var folderBackgroundImageControls: some View {
+        let customization = appStore.folderCustomization(for: folder)
+        if customization.backgroundPreset == .image {
+            HStack(spacing: 8) {
+                Button {
+                    appStore.presentChooseFolderBackgroundImagePanel(for: folder)
+                } label: {
+                    Image(systemName: "photo")
+                }
+                .buttonStyle(.bordered)
+                .help(localization.text(.chooseFolderBackgroundImage))
+
+                if appStore.hasFolderBackgroundImage(for: folder) {
+                    Image(systemName: "circle.lefthalf.filled")
+                        .foregroundStyle(.secondary)
+                        .help(localization.text(.folderBackgroundImageOpacity))
+
+                    Slider(
+                        value: Binding(
+                            get: {
+                                appStore.folderCustomization(for: folder).backgroundImageOpacity
+                            },
+                            set: { newValue in
+                                appStore.setFolderBackgroundImageOpacity(newValue, for: folder)
+                            }
+                        ),
+                        in: 0.15...1.0
+                    )
+                    .frame(width: 120)
+                    .help(localization.text(.folderBackgroundImageOpacity))
+
+                    Button {
+                        appStore.resetFolderBackgroundImage(for: folder)
+                    } label: {
+                        Image(systemName: "photo.badge.minus")
+                    }
+                    .buttonStyle(.bordered)
+                    .help(localization.text(.resetFolderBackgroundImage))
+                }
+            }
+        }
+    }
+
+    private var folderLockButton: some View {
+        let isLocked = appStore.isFolderLayoutLocked(folder)
+        return Button {
+            appStore.setFolderLayoutLocked(!isLocked, for: folder)
+        } label: {
+            Image(systemName: isLocked ? "lock.fill" : "lock.open")
+        }
+        .buttonStyle(.bordered)
+        .help(isLocked ? localization.text(.folderLayoutLocked) : localization.text(.folderLayoutUnlocked))
+    }
+
+    private var folderSortMenu: some View {
+        Menu {
+            ForEach(FolderSortMode.allCases) { mode in
+                Button {
+                    appStore.sortFolder(folder, mode: mode)
+                } label: {
+                    Label(folderSortTitle(mode), systemImage: mode == .nameAscending ? "textformat.abc" : "textformat.abc.dottedunderline")
+                }
+            }
+        } label: {
+            Image(systemName: "arrow.up.arrow.down")
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help(localization.text(.sortFolderApps))
     }
     
     @ViewBuilder
@@ -300,7 +458,7 @@ extension FolderView {
             .allowsHitTesting(!isDraggingThisTile)
             .animation(LNAnimations.springFast, value: isSelected)
 
-        if appStore.isLayoutEditing {
+        if appStore.isLayoutEditing && !appStore.isFolderLayoutLocked(folder) {
             content.simultaneousGesture(
                 DragGesture(minimumDistance: 2, coordinateSpace: .named("folderGrid"))
                     .onChanged { value in
@@ -464,6 +622,45 @@ extension FolderView {
             appStore.removeAppFromFolder(app, folder: folder)
         } label: {
             Label(localization.text(.remove), systemImage: "trash")
+        }
+    }
+
+    private func folderColorTitle(_ preset: FolderColorPreset) -> String {
+        switch preset {
+        case .automatic: return localization.text(.colorAutomatic)
+        case .graphite: return localization.text(.colorGraphite)
+        case .blue: return localization.text(.colorBlue)
+        case .green: return localization.text(.colorGreen)
+        case .orange: return localization.text(.colorOrange)
+        case .pink: return localization.text(.colorPink)
+        case .purple: return localization.text(.colorPurple)
+        }
+    }
+
+    private func folderBackgroundTitle(_ preset: FolderBackgroundPreset) -> String {
+        switch preset {
+        case .glass: return localization.text(.backgroundGlass)
+        case .tinted: return localization.text(.backgroundTinted)
+        case .solid: return localization.text(.backgroundSolid)
+        case .image: return localization.text(.backgroundImage)
+        case .clear: return localization.text(.backgroundClear)
+        }
+    }
+
+    private func folderBackgroundIcon(_ preset: FolderBackgroundPreset) -> String {
+        switch preset {
+        case .glass: return "square.on.square"
+        case .tinted: return "rectangle.fill"
+        case .solid: return "square.fill"
+        case .image: return "photo"
+        case .clear: return "rectangle"
+        }
+    }
+
+    private func folderSortTitle(_ mode: FolderSortMode) -> String {
+        switch mode {
+        case .nameAscending: return localization.text(.sortNameAscending)
+        case .nameDescending: return localization.text(.sortNameDescending)
         }
     }
 }

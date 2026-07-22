@@ -822,10 +822,122 @@ struct LaunchpadView: View {
 
         Divider()
 
+        Menu {
+            ForEach(FolderColorPreset.allCases) { preset in
+                Button {
+                    appStore.setFolderColor(preset, for: folder)
+                } label: {
+                    Label(folderColorTitle(preset), systemImage: appStore.folderCustomization(for: folder).colorPreset == preset ? "checkmark" : "paintpalette")
+                }
+            }
+        } label: {
+            Label(localization.text(.folderColor), systemImage: "paintpalette")
+        }
+
+        Menu {
+            ForEach(FolderBackgroundPreset.allCases) { preset in
+                Button {
+                    if preset == .image {
+                        appStore.presentChooseFolderBackgroundImagePanel(for: folder)
+                    } else {
+                        appStore.setFolderBackground(preset, for: folder)
+                    }
+                } label: {
+                    Label(folderBackgroundTitle(preset), systemImage: appStore.folderCustomization(for: folder).backgroundPreset == preset ? "checkmark" : folderBackgroundIcon(preset))
+                }
+            }
+
+            if appStore.hasFolderBackgroundImage(for: folder) {
+                Divider()
+
+                Button {
+                    appStore.presentChooseFolderBackgroundImagePanel(for: folder)
+                } label: {
+                    Label(localization.text(.chooseFolderBackgroundImage), systemImage: "photo")
+                }
+
+                Button {
+                    appStore.resetFolderBackgroundImage(for: folder)
+                } label: {
+                    Label(localization.text(.resetFolderBackgroundImage), systemImage: "photo.badge.minus")
+                }
+            }
+        } label: {
+            Label(localization.text(.folderBackground), systemImage: "rectangle.fill")
+        }
+
+        Button {
+            appStore.setFolderLayoutLocked(!appStore.isFolderLayoutLocked(folder), for: folder)
+        } label: {
+            Label(
+                localization.text(.folderLayoutLock),
+                systemImage: appStore.isFolderLayoutLocked(folder) ? "lock.fill" : "lock.open"
+            )
+        }
+
+        Menu {
+            ForEach(FolderSortMode.allCases) { mode in
+                Button {
+                    appStore.sortFolder(folder, mode: mode)
+                } label: {
+                    Label(folderSortTitle(mode), systemImage: mode == .nameAscending ? "textformat.abc" : "textformat.abc.dottedunderline")
+                }
+            }
+        } label: {
+            Label(localization.text(.sortFolderApps), systemImage: "arrow.up.arrow.down")
+        }
+
+        Button {
+            appStore.resetFolderCustomization(for: folder)
+        } label: {
+            Label(localization.text(.resetFolderCustomization), systemImage: "arrow.counterclockwise")
+        }
+
+        Divider()
+
         Button(role: .destructive) {
             appStore.removeFolder(folder)
         } label: {
             Label(localization.text(.remove), systemImage: "trash")
+        }
+    }
+
+    private func folderColorTitle(_ preset: FolderColorPreset) -> String {
+        switch preset {
+        case .automatic: return localization.text(.colorAutomatic)
+        case .graphite: return localization.text(.colorGraphite)
+        case .blue: return localization.text(.colorBlue)
+        case .green: return localization.text(.colorGreen)
+        case .orange: return localization.text(.colorOrange)
+        case .pink: return localization.text(.colorPink)
+        case .purple: return localization.text(.colorPurple)
+        }
+    }
+
+    private func folderBackgroundTitle(_ preset: FolderBackgroundPreset) -> String {
+        switch preset {
+        case .glass: return localization.text(.backgroundGlass)
+        case .tinted: return localization.text(.backgroundTinted)
+        case .solid: return localization.text(.backgroundSolid)
+        case .image: return localization.text(.backgroundImage)
+        case .clear: return localization.text(.backgroundClear)
+        }
+    }
+
+    private func folderBackgroundIcon(_ preset: FolderBackgroundPreset) -> String {
+        switch preset {
+        case .glass: return "square.on.square"
+        case .tinted: return "rectangle.fill"
+        case .solid: return "square.fill"
+        case .image: return "photo"
+        case .clear: return "rectangle"
+        }
+    }
+
+    private func folderSortTitle(_ mode: FolderSortMode) -> String {
+        switch mode {
+        case .nameAscending: return localization.text(.sortNameAscending)
+        case .nameDescending: return localization.text(.sortNameDescending)
         }
     }
     

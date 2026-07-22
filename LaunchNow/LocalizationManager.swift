@@ -277,6 +277,30 @@ enum L10nKey: String {
     case folderZone
     case swapZone
     case folderName
+    case folderColor
+    case folderBackground
+    case folderLayoutLock
+    case folderLayoutLocked
+    case folderLayoutUnlocked
+    case sortFolderApps
+    case sortNameAscending
+    case sortNameDescending
+    case resetFolderCustomization
+    case chooseFolderBackgroundImage
+    case resetFolderBackgroundImage
+    case folderBackgroundImageOpacity
+    case colorAutomatic
+    case colorGraphite
+    case colorBlue
+    case colorGreen
+    case colorOrange
+    case colorPink
+    case colorPurple
+    case backgroundGlass
+    case backgroundTinted
+    case backgroundSolid
+    case backgroundImage
+    case backgroundClear
     case untitledFolder
     case categoryDeveloper
     case categoryDesign
@@ -555,6 +579,30 @@ final class LocalizationManager: ObservableObject {
             .folderZone: "Folder",
             .swapZone: "Swap",
             .folderName: "Folder Name",
+            .folderColor: "Folder Color",
+            .folderBackground: "Folder Background",
+            .folderLayoutLock: "Lock Folder Layout",
+            .folderLayoutLocked: "Folder layout locked",
+            .folderLayoutUnlocked: "Folder layout unlocked",
+            .sortFolderApps: "Sort Apps",
+            .sortNameAscending: "Name A-Z",
+            .sortNameDescending: "Name Z-A",
+            .resetFolderCustomization: "Reset Folder Customization",
+            .chooseFolderBackgroundImage: "Choose Folder Background Image",
+            .resetFolderBackgroundImage: "Reset Folder Background Image",
+            .folderBackgroundImageOpacity: "Image Intensity",
+            .colorAutomatic: "Automatic",
+            .colorGraphite: "Graphite",
+            .colorBlue: "Blue",
+            .colorGreen: "Green",
+            .colorOrange: "Orange",
+            .colorPink: "Pink",
+            .colorPurple: "Purple",
+            .backgroundGlass: "Glass",
+            .backgroundTinted: "Tinted",
+            .backgroundSolid: "Solid",
+            .backgroundImage: "Image",
+            .backgroundClear: "Clear",
             .untitledFolder: "Untitled",
             .categoryDeveloper: "Developer",
             .categoryDesign: "Design",
@@ -785,6 +833,30 @@ final class LocalizationManager: ObservableObject {
             .folderZone: "โฟลเดอร์",
             .swapZone: "สลับตำแหน่ง",
             .folderName: "ชื่อโฟลเดอร์",
+            .folderColor: "สีโฟลเดอร์",
+            .folderBackground: "พื้นหลังโฟลเดอร์",
+            .folderLayoutLock: "ล็อกเลย์เอาต์ในโฟลเดอร์",
+            .folderLayoutLocked: "ล็อกเลย์เอาต์ในโฟลเดอร์แล้ว",
+            .folderLayoutUnlocked: "ปลดล็อกเลย์เอาต์ในโฟลเดอร์แล้ว",
+            .sortFolderApps: "เรียงแอป",
+            .sortNameAscending: "ชื่อ A-Z",
+            .sortNameDescending: "ชื่อ Z-A",
+            .resetFolderCustomization: "รีเซ็ตการปรับแต่งโฟลเดอร์",
+            .chooseFolderBackgroundImage: "เลือกรูปพื้นหลังโฟลเดอร์",
+            .resetFolderBackgroundImage: "รีเซ็ตรูปพื้นหลังโฟลเดอร์",
+            .folderBackgroundImageOpacity: "ความเข้มของรูป",
+            .colorAutomatic: "อัตโนมัติ",
+            .colorGraphite: "กราไฟต์",
+            .colorBlue: "น้ำเงิน",
+            .colorGreen: "เขียว",
+            .colorOrange: "ส้ม",
+            .colorPink: "ชมพู",
+            .colorPurple: "ม่วง",
+            .backgroundGlass: "กระจก",
+            .backgroundTinted: "สีจาง",
+            .backgroundSolid: "สีทึบ",
+            .backgroundImage: "รูปภาพ",
+            .backgroundClear: "โปร่งใส",
             .untitledFolder: "ไม่มีชื่อ",
             .categoryDeveloper: "Developer",
             .categoryDesign: "Design",

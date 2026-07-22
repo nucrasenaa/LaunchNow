@@ -94,6 +94,7 @@ final class AppStore: ObservableObject {
         var customAppNames: [String: String]
         var customAppIconFiles: [String: String]
         var customFolderIconFiles: [String: String]
+        var customFolderStyles: [String: FolderCustomization]?
     }
 
     private struct ProfileSettings: Codable {
@@ -753,7 +754,8 @@ final class AppStore: ObservableObject {
             items: items.map(profileItemSnapshot(for:)),
             customAppNames: CustomAppNameManager.shared.exportNames(),
             customAppIconFiles: CustomAppIconManager.shared.exportIconFiles(),
-            customFolderIconFiles: CustomFolderIconManager.shared.exportIconFiles()
+            customFolderIconFiles: CustomFolderIconManager.shared.exportIconFiles(),
+            customFolderStyles: FolderCustomizationManager.shared.exportCustomizations()
         )
     }
 
@@ -870,6 +872,10 @@ final class AppStore: ObservableObject {
             to: profileDirectory.appendingPathComponent("CustomFolderIcons", isDirectory: true)
         )
         try copyDirectoryIfPresent(
+            from: FolderCustomizationManager.shared.exportBackgroundsDirectoryURL(),
+            to: profileDirectory.appendingPathComponent("FolderBackgrounds", isDirectory: true)
+        )
+        try copyDirectoryIfPresent(
             from: try backgroundDirectoryURL(),
             to: profileDirectory.appendingPathComponent("Backgrounds", isDirectory: true)
         )
@@ -883,6 +889,10 @@ final class AppStore: ObservableObject {
         try CustomFolderIconManager.shared.replaceIcons(
             with: snapshot.customFolderIconFiles,
             from: profileDirectory.appendingPathComponent("CustomFolderIcons", isDirectory: true)
+        )
+        FolderCustomizationManager.shared.replaceCustomizations(snapshot.customFolderStyles ?? [:])
+        try FolderCustomizationManager.shared.replaceBackgrounds(
+            from: profileDirectory.appendingPathComponent("FolderBackgrounds", isDirectory: true)
         )
         CustomAppNameManager.shared.replaceNames(snapshot.customAppNames)
 
@@ -1912,6 +1922,24 @@ final class AppStore: ObservableObject {
         }
     }
 
+    func presentChooseFolderBackgroundImagePanel(for folder: FolderInfo) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.image]
+        panel.prompt = LocalizationManager.shared.text(.choose)
+        panel.message = LocalizationManager.shared.text(.chooseFolderBackgroundImage)
+        if AppPanelPresenter.runModal(panel) == .OK, let imageURL = panel.url {
+            do {
+                try FolderCustomizationManager.shared.setBackgroundImage(from: imageURL, forFolderId: folder.id)
+                refreshFolderCustomization(forFolderId: folder.id)
+            } catch {
+                NSSound.beep()
+            }
+        }
+    }
+
     // MARK: - Custom Background
     func presentChooseBackgroundImagePanel() {
         let panel = NSOpenPanel()
@@ -2039,6 +2067,72 @@ final class AppStore: ObservableObject {
         CustomFolderIconManager.shared.hasCustomIcon(forFolderId: folder.id)
     }
 
+    func folderCustomization(for folder: FolderInfo) -> FolderCustomization {
+        FolderCustomizationManager.shared.customization(forFolderId: folder.id)
+    }
+
+    func setFolderColor(_ preset: FolderColorPreset, for folder: FolderInfo) {
+        FolderCustomizationManager.shared.setColor(preset, forFolderId: folder.id)
+        refreshFolderCustomization(forFolderId: folder.id)
+    }
+
+    func setFolderBackground(_ preset: FolderBackgroundPreset, for folder: FolderInfo) {
+        FolderCustomizationManager.shared.setBackground(preset, forFolderId: folder.id)
+        refreshFolderCustomization(forFolderId: folder.id)
+    }
+
+    func folderBackgroundImage(for folder: FolderInfo) -> NSImage? {
+        FolderCustomizationManager.shared.backgroundImage(forFolderId: folder.id)
+    }
+
+    func hasFolderBackgroundImage(for folder: FolderInfo) -> Bool {
+        FolderCustomizationManager.shared.hasBackgroundImage(forFolderId: folder.id)
+    }
+
+    func setFolderBackgroundImageOpacity(_ opacity: Double, for folder: FolderInfo) {
+        FolderCustomizationManager.shared.setBackgroundImageOpacity(opacity, forFolderId: folder.id)
+        refreshFolderCustomization(forFolderId: folder.id)
+    }
+
+    func resetFolderBackgroundImage(for folder: FolderInfo) {
+        FolderCustomizationManager.shared.resetBackgroundImage(forFolderId: folder.id)
+        refreshFolderCustomization(forFolderId: folder.id)
+    }
+
+    func setFolderLayoutLocked(_ isLocked: Bool, for folder: FolderInfo) {
+        FolderCustomizationManager.shared.setLayoutLocked(isLocked, forFolderId: folder.id)
+        refreshFolderCustomization(forFolderId: folder.id)
+    }
+
+    func isFolderLayoutLocked(_ folder: FolderInfo) -> Bool {
+        folderCustomization(for: folder).isLayoutLocked
+    }
+
+    func sortFolder(_ folder: FolderInfo, mode: FolderSortMode) {
+        guard let index = folders.firstIndex(of: folder) else { return }
+        var updatedFolder = folders[index]
+        switch mode {
+        case .nameAscending:
+            updatedFolder.apps.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        case .nameDescending:
+            updatedFolder.apps.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedDescending }
+        }
+        folders[index] = updatedFolder
+        syncFolderInItems(updatedFolder)
+        if openFolder?.id == updatedFolder.id {
+            openFolder = updatedFolder
+        }
+        triggerFolderUpdate()
+        triggerGridRefresh()
+        refreshCacheAfterFolderOperation()
+        saveAllOrder()
+    }
+
+    func resetFolderCustomization(for folder: FolderInfo) {
+        FolderCustomizationManager.shared.reset(folderId: folder.id)
+        refreshFolderCustomization(forFolderId: folder.id)
+    }
+
     private func refreshFolderIcon(forFolderId folderId: String) {
         cacheManager.clearAllCaches()
         triggerFolderUpdate()
@@ -2046,6 +2140,16 @@ final class AppStore: ObservableObject {
         if let openFolder, openFolder.id == folderId {
             self.openFolder = folders.first(where: { $0.id == folderId }) ?? openFolder
         }
+    }
+
+    private func refreshFolderCustomization(forFolderId folderId: String) {
+        cacheManager.clearAllCaches()
+        if let openFolder, openFolder.id == folderId {
+            self.openFolder = folders.first(where: { $0.id == folderId }) ?? openFolder
+        }
+        triggerFolderUpdate()
+        triggerGridRefresh()
+        saveAllOrder()
     }
 
     func resetCustomIcon(for app: AppInfo) {
@@ -2227,11 +2331,7 @@ final class AppStore: ObservableObject {
         var updatedFolder = folders[index]
         updatedFolder.name = newName
         folders[index] = updatedFolder
-        for idx in items.indices {
-            if case .folder(let f) = items[idx], f.id == updatedFolder.id {
-                items[idx] = .folder(updatedFolder)
-            }
-        }
+        syncFolderInItems(updatedFolder)
         triggerFolderUpdate()
         triggerGridRefresh()
         refreshCacheAfterFolderOperation()
@@ -2262,6 +2362,7 @@ final class AppStore: ObservableObject {
     }
 
     func removeFolder(_ folder: FolderInfo) {
+        FolderCustomizationManager.shared.reset(folderId: folder.id)
         folders.removeAll { $0.id == folder.id }
         items = items.map { item in
             if case .folder(let existingFolder) = item, existingFolder.id == folder.id {
@@ -2278,6 +2379,14 @@ final class AppStore: ObservableObject {
         triggerFolderUpdate()
         triggerGridRefresh()
         refreshCacheAfterFolderOperation()
+    }
+
+    private func syncFolderInItems(_ folder: FolderInfo) {
+        for idx in items.indices {
+            if case .folder(let existing) = items[idx], existing.id == folder.id {
+                items[idx] = .folder(folder)
+            }
+        }
     }
     
     func resetLayout() {

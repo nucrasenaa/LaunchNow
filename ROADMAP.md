@@ -29,7 +29,7 @@ Use this checklist to track future features. When the 2.0.0 roadmap is complete,
   - Support actions such as Open, Show in Finder, Rename, and Change Icon.
   - Keep the flow focused on LaunchNow while feeling fast like Spotlight or Raycast.
 
-- [ ] 6. Folder Customization More
+- [x] 6. Folder Customization More
   - Add folder color customization.
   - Add folder background customization.
   - Support sorting apps inside folders.
@@ -63,7 +63,7 @@ Use this checklist to track future features. When the 2.0.0 roadmap is complete,
 - [x] Search Command Palette
 - [x] Diagnostics / Support Panel
 - [x] Performance / Large App Library Polish
-- [ ] Folder Customization More
+- [x] Folder Customization More
 - [ ] App Usage / Smart Suggestions
 - [ ] Onboarding / First Run Setup
 

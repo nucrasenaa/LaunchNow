@@ -42,6 +42,19 @@ struct FolderInfo: Identifiable, Equatable {
         }
 
         let rect = NSRect(origin: .zero, size: size)
+        let customization = FolderCustomizationManager.shared.customization(forFolderId: id)
+        let backgroundRect = rect.insetBy(dx: round(side * 0.04), dy: round(side * 0.04))
+        let path = NSBezierPath(roundedRect: backgroundRect, xRadius: side * 0.2, yRadius: side * 0.2)
+        if customization.backgroundPreset == .image,
+           let backgroundImage = FolderCustomizationManager.shared.backgroundImage(forFolderId: id) {
+            NSGraphicsContext.saveGraphicsState()
+            path.addClip()
+            backgroundImage.draw(in: backgroundRect, from: .zero, operation: .sourceOver, fraction: CGFloat(customization.backgroundImageOpacity))
+            NSGraphicsContext.restoreGraphicsState()
+        } else if customization.colorPreset != .automatic {
+            customization.colorPreset.nsColor.withAlphaComponent(0.22).setFill()
+            path.fill()
+        }
 
         let outerInset = round(side * 0.12)
         let contentRect = rect.insetBy(dx: outerInset, dy: outerInset)

@@ -333,7 +333,8 @@ private struct CacheKeyGenerator {
     func generateFolderIconKey(for folder: FolderInfo, side: CGFloat) -> String {
         let roundedSide = Int((max(16, side) * 2).rounded())
         let appSignature = folder.apps.prefix(4).map { $0.url.path }.joined(separator: "|")
-        return "folder_\(folder.id)_\(folder.name)_\(roundedSide)_\(appSignature)".hashValue.description
+        let customizationSignature = FolderCustomizationManager.shared.signature(for: folder)
+        return "folder_\(folder.id)_\(folder.name)_\(roundedSide)_\(appSignature)_\(customizationSignature)".hashValue.description
     }
     
     func generateAppInfoKey(for appPath: String) -> String {
