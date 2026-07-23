@@ -89,6 +89,22 @@ final class AppCacheManager: ObservableObject {
         }
     }
 
+    func setCachedIcon(_ icon: NSImage, for appPath: String) {
+        let key = cacheKeyGenerator.generateIconKey(for: appPath)
+
+        cacheLock.lock()
+        if let existingIndex = iconCacheOrder.firstIndex(of: key) {
+            iconCacheOrder.remove(at: existingIndex)
+        }
+        iconCache[key] = icon
+        iconCacheOrder.append(key)
+        if iconCache.count > maxIconCacheSize, let oldestKey = iconCacheOrder.first {
+            iconCache.removeValue(forKey: oldestKey)
+            iconCacheOrder.removeFirst()
+        }
+        cacheLock.unlock()
+    }
+
     func getCachedFolderIcon(for folder: FolderInfo, side: CGFloat) -> NSImage {
         let key = cacheKeyGenerator.generateFolderIconKey(for: folder, side: side)
 

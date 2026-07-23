@@ -17,6 +17,11 @@ enum AppIconProvider {
         if app.hasLoadedIcon, app.icon.size.width > 0, app.icon.size.height > 0 {
             return app.icon
         }
+        let resolvedIcon = CustomAppIconManager.shared.icon(forAppURL: app.url)
+        if resolvedIcon.size.width > 0, resolvedIcon.size.height > 0 {
+            AppCacheManager.shared.setCachedIcon(resolvedIcon, for: app.url.path)
+            return resolvedIcon
+        }
         return placeholderIcon
     }
 }
