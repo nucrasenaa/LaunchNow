@@ -526,54 +526,191 @@ struct SettingsView: View {
             set: { appStore.gridRows = Int($0.rounded()) }
         )
 
-        return VStack(alignment: .leading, spacing: 24) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text(localization.text(.columns)).font(.headline)
-                    Spacer()
-                    Text("\(appStore.gridColumns)")
+        return VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top, spacing: 18) {
+                VStack(alignment: .leading, spacing: 16) {
+                    gridControl(
+                        title: localization.text(.columns),
+                        value: appStore.gridColumns,
+                        minValue: 3,
+                        maxValue: 12,
+                        description: localization.text(.appColumnsDescription),
+                        binding: columnsBinding,
+                        decrement: { appStore.gridColumns -= 1 },
+                        increment: { appStore.gridColumns += 1 }
+                    )
+
+                    gridControl(
+                        title: localization.text(.rows),
+                        value: appStore.gridRows,
+                        minValue: 2,
+                        maxValue: 8,
+                        description: localization.text(.appRowsDescription),
+                        binding: rowsBinding,
+                        decrement: { appStore.gridRows -= 1 },
+                        increment: { appStore.gridRows += 1 }
+                    )
+                }
+                .frame(minWidth: 300, maxWidth: 420, alignment: .leading)
+
+                gridPreview
+                    .frame(minWidth: 260, maxWidth: 360)
+            }
+        }
+    }
+
+    private func gridControl(title: String,
+                             value: Int,
+                             minValue: Int,
+                             maxValue: Int,
+                             description: String,
+                             binding: Binding<Double>,
+                             decrement: @escaping () -> Void,
+                             increment: @escaping () -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.headline)
+                    Text(description)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                Slider(value: columnsBinding, in: 3...12, step: 1)
-                    .frame(maxWidth: 380)
-                HStack {
-                    Text("3").font(.footnote).foregroundStyle(.secondary)
-                    Spacer()
-                    Text("12").font(.footnote).foregroundStyle(.secondary)
+
+                Spacer(minLength: 12)
+
+                HStack(spacing: 6) {
+                    Button {
+                        decrement()
+                    } label: {
+                        Image(systemName: "minus")
+                            .frame(width: 18, height: 18)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(value <= minValue)
+                    .help("\(title) -")
+
+                    Text("\(value)")
+                        .font(.headline.monospacedDigit())
+                        .frame(minWidth: 34)
+
+                    Button {
+                        increment()
+                    } label: {
+                        Image(systemName: "plus")
+                            .frame(width: 18, height: 18)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(value >= maxValue)
+                    .help("\(title) +")
                 }
-                Text(localization.text(.appColumnsDescription))
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
             }
 
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text(localization.text(.rows)).font(.headline)
-                    Spacer()
-                    Text("\(appStore.gridRows)")
-                        .foregroundStyle(.secondary)
-                }
-                Slider(value: rowsBinding, in: 2...8, step: 1)
-                    .frame(maxWidth: 380)
-                HStack {
-                    Text("2").font(.footnote).foregroundStyle(.secondary)
-                    Spacer()
-                    Text("8").font(.footnote).foregroundStyle(.secondary)
-                }
-                Text(localization.text(.appRowsDescription))
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
+            Slider(value: binding, in: Double(minValue)...Double(maxValue), step: 1)
 
             HStack {
-                Text(localization.text(.itemsPerPage))
-                    .font(.headline)
+                Text("\(minValue)")
                 Spacer()
-                Text("\(appStore.gridRows * appStore.gridColumns)")
+                Text("\(maxValue)")
+            }
+            .font(.caption)
+            .foregroundStyle(.tertiary)
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.72))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.08))
+        )
+    }
+
+    private var gridPreview: some View {
+        let totalItems = appStore.gridRows * appStore.gridColumns
+
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(localization.text(.gridPreview))
+                        .font(.headline)
+                    Text(localization.text(.gridPreviewDescription))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Text("\(appStore.gridColumns)x\(appStore.gridRows)")
+                    .font(.headline.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
-            .frame(maxWidth: 380)
+
+            GeometryReader { proxy in
+                let spacing: CGFloat = 7
+                let columns = Array(repeating: GridItem(.flexible(), spacing: spacing), count: appStore.gridColumns)
+                let rows = CGFloat(appStore.gridRows)
+                let cellHeight = max(10, min(24, (proxy.size.height - spacing * max(0, rows - 1)) / rows))
+
+                LazyVGrid(columns: columns, spacing: spacing) {
+                    ForEach(0..<totalItems, id: \.self) { index in
+                        gridPreviewTile(index: index, cellHeight: cellHeight)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                .padding(14)
+            }
+            .frame(height: 196)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                SettingsSection.layout.tint.opacity(0.18),
+                                Color(nsColor: .controlBackgroundColor).opacity(0.85)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.08))
+            )
+
+            HStack(spacing: 10) {
+                Label("\(totalItems)", systemImage: "square.grid.3x3.fill")
+                Text(localization.text(.itemsPerPage))
+                Spacer()
+                Text(localization.text(.gridDensity))
+                    .foregroundStyle(.secondary)
+            }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
         }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(.regularMaterial)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(SettingsSection.layout.tint.opacity(0.18))
+        )
+    }
+
+    private func gridPreviewTile(index: Int, cellHeight: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: 5, style: .continuous)
+            .fill(index % 5 == 0 ? SettingsSection.layout.tint.opacity(0.72) : Color.primary.opacity(0.22))
+            .frame(height: cellHeight)
+            .overlay(
+                Circle()
+                    .fill(Color.white.opacity(index % 5 == 0 ? 0.58 : 0.34))
+                    .frame(width: max(4, cellHeight * 0.22), height: max(4, cellHeight * 0.22))
+            )
     }
 
     // MARK: - Apps pane (Add + Reset + searchable remove list)

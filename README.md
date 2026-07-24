@@ -1,7 +1,9 @@
 # LaunchNow
 
-![LaunchNow 1.5.2 app grid](https://raw.githubusercontent.com/nucrasenaa/LaunchNowNext/main/public/image/current/launch-now-1.jpg)
+![LaunchNow 2.0.1 app grid](https://raw.githubusercontent.com/nucrasenaa/LaunchNowNext/main/public/image/current/launch-now-1.jpg)
 [Download LaunchNow](https://launchnow.gooxsoft.com/) · Alternative Launchpad for macOS Tahoe
+
+Current release: **2.0.1**
 
 LaunchNow is a polished fork of [ggkevinnnn/LaunchNow](https://github.com/ggkevinnnn/LaunchNow) that keeps your launchpad fast, organized, and fully under your control.
 
@@ -9,7 +11,7 @@ LaunchNow is a polished fork of [ggkevinnnn/LaunchNow](https://github.com/ggkevi
 
 - **Streamlined settings** with intuitive sections for General, Appearance, Grid Layout, App Management, App Sources, Data, and About.
 - **Global keyboard shortcut** to show or hide LaunchNow while it keeps running in the background. The default shortcut is `Option + Space`, and it can be changed in Settings.
-- **Custom grid designer** to tune columns (3–12), rows (2–8), and instantly preview the layout.
+- **Custom grid designer** to tune columns (3–12), rows (2–8), use quick `+` / `-` controls, and instantly preview the page density.
 - **App Sources control** to add external drives or custom folders that LaunchNow monitors alongside the default system locations.
 - **Personalization tools** to rename apps and folders, change app icons, and change folder icons without modifying the real `.app` bundle.
 - **Background customization** with appearance presets, custom images, opacity, and blur controls.
@@ -37,8 +39,9 @@ LaunchNow is a polished fork of [ggkevinnnn/LaunchNow](https://github.com/ggkevi
 9. Save layouts in Settings → Data → Profiles so you can switch between work, personal, or gaming setups.
 10. Choose Settings → Data → Cloud Backup to keep profile backups in your synced cloud folder.
 11. Use Settings → App Management → Auto-organize Apps to create category folders automatically.
-12. Open Settings → About to check for updates manually or keep automatic update checks enabled.
-13. Need a fresh slate? Use Reset Apps to clear the LaunchNow grid. Your apps on disk stay untouched.
+12. Open Settings → Grid Layout to tune rows and columns while watching the live preview.
+13. Open Settings → About to check for updates manually or keep automatic update checks enabled.
+14. Need a fresh slate? Use Reset Apps to clear the LaunchNow grid. Your apps on disk stay untouched.
 
 ## Languages
 

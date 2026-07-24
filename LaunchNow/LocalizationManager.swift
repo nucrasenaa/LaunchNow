@@ -139,6 +139,9 @@ enum L10nKey: String, CaseIterable {
     case appColumnsDescription
     case appRowsDescription
     case itemsPerPage
+    case gridPreview
+    case gridPreviewDescription
+    case gridDensity
     case addApp
     case resetApp
     case autoOrganizeApps
@@ -457,6 +460,9 @@ final class LocalizationManager: ObservableObject {
             .appColumnsDescription: "Number of app columns per page",
             .appRowsDescription: "Number of app rows per page",
             .itemsPerPage: "Items per page",
+            .gridPreview: "Preview",
+            .gridPreviewDescription: "A quick look at the current page density.",
+            .gridDensity: "Grid density",
             .addApp: "Add App",
             .resetApp: "Reset App",
             .autoOrganizeApps: "Auto-organize Apps",
@@ -727,6 +733,9 @@ final class LocalizationManager: ObservableObject {
             .appColumnsDescription: "จำนวนคอลัมน์ของแอปต่อหน้า",
             .appRowsDescription: "จำนวนแถวของแอปต่อหน้า",
             .itemsPerPage: "รายการต่อหน้า",
+            .gridPreview: "ตัวอย่าง",
+            .gridPreviewDescription: "ดูความหนาแน่นของหน้าปัจจุบันแบบรวดเร็ว",
+            .gridDensity: "ความหนาแน่นของกริด",
             .addApp: "เพิ่มแอป",
             .resetApp: "รีเซ็ตแอป",
             .autoOrganizeApps: "จัดกลุ่มแอปอัตโนมัติ",
