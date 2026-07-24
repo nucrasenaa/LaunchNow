@@ -616,6 +616,8 @@ struct SettingsView: View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
 
+            smartSuggestionsSection
+
             // Search
             TextField(localization.text(.searchApps), text: $appListSearchText)
                 .textFieldStyle(.roundedBorder)
@@ -755,6 +757,85 @@ struct SettingsView: View {
                 }
             }
         }
+    }
+
+    private var smartSuggestionsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Toggle(isOn: $appStore.isSmartSuggestionsEnabled) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(localization.text(.smartSuggestions))
+                        .font(.headline)
+                    Text(localization.text(.smartSuggestionsDescription))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .toggleStyle(.checkbox)
+
+            HStack(spacing: 10) {
+                Button {
+                    appStore.sortCurrentLayoutByUsage()
+                } label: {
+                    Label(localization.text(.sortByUsage), systemImage: "chart.bar.fill")
+                }
+                .buttonStyle(.bordered)
+                .disabled(!appStore.isSmartSuggestionsEnabled || allAppsInLaunchpad.isEmpty)
+
+                Button {
+                    appStore.resetAppUsage()
+                } label: {
+                    Label(localization.text(.resetUsage), systemImage: "arrow.counterclockwise")
+                }
+                .buttonStyle(.bordered)
+                .disabled(!appStore.isSmartSuggestionsEnabled)
+            }
+
+            if appStore.isSmartSuggestionsEnabled {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(localization.text(.suggestedFolders))
+                        .font(.subheadline.weight(.semibold))
+
+                    if appStore.smartFolderSuggestions.isEmpty {
+                        Text(localization.text(.noSmartSuggestions))
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(appStore.smartFolderSuggestions) { suggestion in
+                            smartSuggestionRow(suggestion)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .onAppear {
+            appStore.refreshSmartSuggestions()
+        }
+    }
+
+    private func smartSuggestionRow(_ suggestion: AppStore.SmartFolderSuggestion) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "folder.badge.gearshape")
+                .foregroundStyle(.secondary)
+                .frame(width: 20)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(suggestion.title)
+                    .font(.subheadline.weight(.semibold))
+                Text(suggestion.apps.prefix(5).map(\.name).joined(separator: ", "))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            Text(localization.text(.launchCountFormat, suggestion.totalLaunches))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 4)
     }
 
     // MARK: - App Sources pane

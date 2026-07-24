@@ -64,7 +64,7 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     }
 }
 
-enum L10nKey: String {
+enum L10nKey: String, CaseIterable {
     case general
     case appearance
     case gridLayout
@@ -98,6 +98,15 @@ enum L10nKey: String {
     case system
     case runInBackground
     case runInBackgroundDescription
+    case onboardingTitle
+    case onboardingDescription
+    case onboardingLanguageTitle
+    case onboardingShortcutTitle
+    case onboardingScanAppsTitle
+    case onboardingScanAppsDescription
+    case onboardingFullscreenTitle
+    case onboardingFullscreenDescription
+    case onboardingStart
     case searchScope
     case searchScopeDescription
     case searchLaunchNowApps
@@ -134,6 +143,13 @@ enum L10nKey: String {
     case resetApp
     case autoOrganizeApps
     case autoOrganizeAppsDescription
+    case smartSuggestions
+    case smartSuggestionsDescription
+    case sortByUsage
+    case resetUsage
+    case suggestedFolders
+    case noSmartSuggestions
+    case launchCountFormat
     case confirmAutoOrganize
     case confirmAutoOrganizeMessage
     case organize
@@ -365,7 +381,7 @@ final class LocalizationManager: ObservableObject {
         }
     }
 
-    private static let translations: [AppLanguage: [L10nKey: String]] = [
+    private static let translations: [AppLanguage: [L10nKey: String]] = completeTranslations([
         .english: [
             .general: "General",
             .appearance: "Appearance",
@@ -400,6 +416,15 @@ final class LocalizationManager: ObservableObject {
             .system: "System",
             .runInBackground: "Run in background",
             .runInBackgroundDescription: "Add LaunchNow to the Dock or use keyboard shortcuts to open the window quickly.",
+            .onboardingTitle: "Set up LaunchNow",
+            .onboardingDescription: "Choose the basics now. You can change these later in Settings.",
+            .onboardingLanguageTitle: "Language",
+            .onboardingShortcutTitle: "Global Shortcut",
+            .onboardingScanAppsTitle: "Scan apps now",
+            .onboardingScanAppsDescription: "Find installed applications so search and import are ready.",
+            .onboardingFullscreenTitle: "Fullscreen Mode",
+            .onboardingFullscreenDescription: "Use Launchpad-like fullscreen spacing.",
+            .onboardingStart: "Start Using LaunchNow",
             .searchScope: "Search scope",
             .searchScopeDescription: "Choose whether LaunchNow search includes only added apps or every app found on this Mac.",
             .searchLaunchNowApps: "LaunchNow Apps",
@@ -436,6 +461,13 @@ final class LocalizationManager: ObservableObject {
             .resetApp: "Reset App",
             .autoOrganizeApps: "Auto-organize Apps",
             .autoOrganizeAppsDescription: "Group the apps currently in LaunchNow into category folders.",
+            .smartSuggestions: "Smart Suggestions",
+            .smartSuggestionsDescription: "Track launches locally to sort apps by real usage and suggest useful folder groups. LaunchNow will not rearrange your layout unless you press a button.",
+            .sortByUsage: "Sort by Usage",
+            .resetUsage: "Reset Usage",
+            .suggestedFolders: "Suggested Folders",
+            .noSmartSuggestions: "Open apps from LaunchNow to build usage-based suggestions.",
+            .launchCountFormat: "%d launches",
             .confirmAutoOrganize: "Auto-organize apps?",
             .confirmAutoOrganizeMessage: "This will rearrange your current LaunchNow layout into category folders. Your apps on disk are not affected.",
             .organize: "Organize",
@@ -654,6 +686,15 @@ final class LocalizationManager: ObservableObject {
             .system: "ตามระบบ",
             .runInBackground: "ทำงานเบื้องหลัง",
             .runInBackgroundDescription: "เพิ่ม LaunchNow ไว้ใน Dock หรือใช้คีย์ลัดเพื่อเปิดหน้าต่างได้รวดเร็ว",
+            .onboardingTitle: "ตั้งค่า LaunchNow",
+            .onboardingDescription: "เลือกค่าพื้นฐานตอนนี้ และเปลี่ยนภายหลังได้ใน Settings",
+            .onboardingLanguageTitle: "ภาษา",
+            .onboardingShortcutTitle: "คีย์ลัดส่วนกลาง",
+            .onboardingScanAppsTitle: "สแกนแอปตอนนี้",
+            .onboardingScanAppsDescription: "ค้นหาแอปที่ติดตั้งไว้ เพื่อให้ search และ import พร้อมใช้งาน",
+            .onboardingFullscreenTitle: "โหมดเต็มหน้าจอ",
+            .onboardingFullscreenDescription: "ใช้ระยะห่างแบบ Launchpad เต็มหน้าจอ",
+            .onboardingStart: "เริ่มใช้ LaunchNow",
             .searchScope: "ขอบเขตการค้นหา",
             .searchScopeDescription: "เลือกว่าจะค้นหาเฉพาะแอปที่เพิ่มใน LaunchNow หรือค้นหาแอปทั้งหมดที่พบในเครื่องนี้",
             .searchLaunchNowApps: "แอปใน LaunchNow",
@@ -690,6 +731,13 @@ final class LocalizationManager: ObservableObject {
             .resetApp: "รีเซ็ตแอป",
             .autoOrganizeApps: "จัดกลุ่มแอปอัตโนมัติ",
             .autoOrganizeAppsDescription: "จัดกลุ่มแอปที่อยู่ใน LaunchNow ตอนนี้เข้าโฟลเดอร์ตามหมวดหมู่",
+            .smartSuggestions: "คำแนะนำอัจฉริยะ",
+            .smartSuggestionsDescription: "บันทึกการเปิดแอปไว้ในเครื่อง เพื่อเรียงแอปตามการใช้งานจริงและแนะนำกลุ่มโฟลเดอร์ โดย LaunchNow จะไม่จัดเลย์เอาต์เองจนกว่าคุณจะกดปุ่ม",
+            .sortByUsage: "เรียงตามการใช้งาน",
+            .resetUsage: "รีเซ็ตข้อมูลการใช้งาน",
+            .suggestedFolders: "โฟลเดอร์ที่แนะนำ",
+            .noSmartSuggestions: "เปิดแอปจาก LaunchNow เพื่อสร้างคำแนะนำจากการใช้งาน",
+            .launchCountFormat: "เปิด %d ครั้ง",
             .confirmAutoOrganize: "จัดกลุ่มแอปอัตโนมัติ?",
             .confirmAutoOrganizeMessage: "ระบบจะจัดเลย์เอาต์ LaunchNow ปัจจุบันใหม่เป็นโฟลเดอร์ตามหมวดหมู่ โดยไม่กระทบแอปจริงในเครื่อง",
             .organize: "จัดกลุ่ม",
@@ -955,5 +1003,31 @@ final class LocalizationManager: ObservableObject {
             .exportData: "Xuất dữ liệu", .importData: "Nhập dữ liệu", .exportImportDescription: "Xuất/nhập bao gồm bố cục, thư mục và cài đặt.", .versionFormat: "Phiên bản %@", .aboutDescription: "Trình mở ứng dụng nhẹ giống Launchpad.", .uninstall: "Gỡ cài đặt", .uninstallDescription: "Thoát ứng dụng và chuyển vào Thùng rác. Bạn cũng có thể xóa dữ liệu ứng dụng.", .uninstallTitle: "Gỡ cài đặt LaunchNow", .uninstallWarning: "Ứng dụng sẽ thoát và cố gắng tự chuyển vào Thùng rác. Bạn cũng có thể xóa dữ liệu của ứng dụng (Application Support và preferences).", .alsoRemoveData: "Xóa cả dữ liệu ứng dụng (Application Support và preferences)",
             .cancel: "Hủy", .clear: "Xóa", .reset: "Đặt lại", .confirmResetLayout: "Xác nhận đặt lại bố cục?", .confirmResetLayoutMessage: "Thao tác này sẽ đặt lại bố cục và quét lại các ứng dụng có sẵn. Ứng dụng sẽ không được tự động thêm vào Launchpad.", .confirmClearApps: "Xóa tất cả ứng dụng khỏi Launchpad?", .confirmClearAppsMessage: "Thao tác này sẽ xóa tất cả ứng dụng, thư mục và bố cục khỏi Launchpad. Ứng dụng trên ổ đĩa không bị ảnh hưởng.", .removeThisFolder: "Xóa thư mục này", .choose: "Chọn", .add: "Thêm", .import: "Nhập", .chooseFoldersContainingApps: "Chọn thư mục có chứa ứng dụng.", .chooseExportDestination: "Chọn thư mục đích để xuất dữ liệu LaunchNow", .chooseImportFolder: "Chọn thư mục đã từng xuất từ LaunchNow", .selectAppsToAdd: "Chọn ứng dụng để thêm vào Launchpad", .selectAll: "Chọn tất cả", .selectAppsToRemove: "Chọn ứng dụng để xóa khỏi Launchpad", .includeFolderApps: "Bao gồm ứng dụng trong thư mục", .search: "Tìm kiếm", .noAppsFound: "Không tìm thấy ứng dụng", .folderName: "Tên thư mục", .untitledFolder: "Chưa đặt tên"
         ]
-    ]
+    ])
+
+    private static func completeTranslations(_ partialTranslations: [AppLanguage: [L10nKey: String]]) -> [AppLanguage: [L10nKey: String]] {
+        guard let englishTranslations = partialTranslations[.english] else {
+            return partialTranslations
+        }
+
+        var completedTranslations = partialTranslations
+        for language in AppLanguage.allCases where language != .system {
+            var mergedTranslations = englishTranslations
+            partialTranslations[language]?.forEach { key, value in
+                mergedTranslations[key] = value
+            }
+            completedTranslations[language] = mergedTranslations
+        }
+
+        #if DEBUG
+        let expectedKeys = Set(L10nKey.allCases)
+        for language in AppLanguage.allCases where language != .system {
+            let translatedKeys = Set(completedTranslations[language]?.keys ?? Dictionary<L10nKey, String>().keys)
+            let missingKeys = expectedKeys.subtracting(translatedKeys)
+            assert(missingKeys.isEmpty, "Missing localization keys for \(language.rawValue): \(missingKeys)")
+        }
+        #endif
+
+        return completedTranslations
+    }
 }

@@ -71,6 +71,13 @@ final class AppStore: ObservableObject {
         var createdAt: Date
     }
 
+    struct SmartFolderSuggestion: Identifiable, Equatable {
+        var id: String { title }
+        var title: String
+        var apps: [AppInfo]
+        var totalLaunches: Int
+    }
+
     private struct ProfileDocument: Codable {
         var summary: ProfileSummary
         var snapshot: ProfileSnapshot
@@ -111,6 +118,7 @@ final class AppStore: ObservableObject {
         var backgroundOpacity: Double
         var backgroundBlur: Double
         var customBackgroundImagePath: String?
+        var smartSuggestionsEnabled: Bool?
     }
 
     private struct ProfileItem: Codable {
@@ -138,6 +146,7 @@ final class AppStore: ObservableObject {
         }
     }
     @Published var isSetting = false
+    @Published var isOnboardingPresented = false
     @Published var currentPage = 0
     @Published var searchText: String = ""
     @Published var isLayoutEditing: Bool = false {
@@ -158,6 +167,13 @@ final class AppStore: ObservableObject {
             triggerGridRefresh()
         }
     }
+    @Published var isSmartSuggestionsEnabled: Bool = true {
+        didSet {
+            UserDefaults.standard.set(isSmartSuggestionsEnabled, forKey: Self.smartSuggestionsEnabledDefaultsKey)
+            refreshSmartSuggestions()
+        }
+    }
+    @Published private(set) var smartFolderSuggestions: [SmartFolderSuggestion] = []
     @Published var isStartOnLogin: Bool = false
     @Published var isFullscreenMode: Bool = false {
         didSet {
@@ -304,6 +320,8 @@ final class AppStore: ObservableObject {
     private static let lastCloudBackupAtDefaultsKey = "lastCloudBackupAt"
     private static let cloudAutoBackupEnabledDefaultsKey = "cloudAutoBackupEnabled"
     private static let layoutEditingDefaultsKey = "layoutEditing"
+    private static let smartSuggestionsEnabledDefaultsKey = "smartSuggestionsEnabled"
+    private static let onboardingCompletedDefaultsKey = "onboardingCompleted"
     private static let maxProfileHistoryCount = 10
     private var isInitializingCustomPaths = false
     
@@ -339,6 +357,11 @@ final class AppStore: ObservableObject {
         let savedSearchScope = UserDefaults.standard.string(forKey: Self.searchScopeDefaultsKey) ?? LaunchpadSearchScope.launchNowApps.rawValue
         self.searchScope = LaunchpadSearchScope(rawValue: savedSearchScope) ?? .launchNowApps
         self.isLayoutEditing = UserDefaults.standard.bool(forKey: Self.layoutEditingDefaultsKey)
+        if UserDefaults.standard.object(forKey: Self.smartSuggestionsEnabledDefaultsKey) == nil {
+            self.isSmartSuggestionsEnabled = true
+        } else {
+            self.isSmartSuggestionsEnabled = UserDefaults.standard.bool(forKey: Self.smartSuggestionsEnabledDefaultsKey)
+        }
         let savedBackgroundPreset = UserDefaults.standard.string(forKey: Self.backgroundPresetDefaultsKey) ?? LaunchpadBackgroundPreset.system.rawValue
         self.backgroundPreset = LaunchpadBackgroundPreset(rawValue: savedBackgroundPreset) ?? .system
         let savedAppearancePreset = UserDefaults.standard.string(forKey: Self.appearancePresetDefaultsKey) ?? LaunchpadAppearancePreset.glass.rawValue
@@ -749,7 +772,8 @@ final class AppStore: ObservableObject {
                 backgroundPreset: backgroundPreset.rawValue,
                 backgroundOpacity: backgroundOpacity,
                 backgroundBlur: backgroundBlur,
-                customBackgroundImagePath: customBackgroundImagePath
+                customBackgroundImagePath: customBackgroundImagePath,
+                smartSuggestionsEnabled: isSmartSuggestionsEnabled
             ),
             items: items.map(profileItemSnapshot(for:)),
             customAppNames: CustomAppNameManager.shared.exportNames(),
@@ -784,6 +808,9 @@ final class AppStore: ObservableObject {
         if let rawSearchScope = settings.searchScope,
            let importedSearchScope = LaunchpadSearchScope(rawValue: rawSearchScope) {
             searchScope = importedSearchScope
+        }
+        if let smartSuggestionsEnabled = settings.smartSuggestionsEnabled {
+            isSmartSuggestionsEnabled = smartSuggestionsEnabled
         }
         if let preset = LaunchpadAppearancePreset(rawValue: settings.appearancePreset) {
             appearancePreset = preset
@@ -1038,11 +1065,53 @@ final class AppStore: ObservableObject {
             .debounce(for: .seconds(0.5), scheduler: DispatchQueue.main)
             .sink { [weak self] _ in
                 guard let self = self, !self.items.isEmpty else { return }
+                self.refreshSmartSuggestions()
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     self.saveAllOrder()
                 }
             }
             .store(in: &cancellables)
+    }
+
+    func presentOnboardingIfNeeded() {
+        guard UserDefaults.standard.object(forKey: Self.onboardingCompletedDefaultsKey) == nil else { return }
+        if hasExistingUserDataForOnboarding {
+            completeOnboardingSilently()
+            return
+        }
+        isOnboardingPresented = true
+    }
+
+    func completeOnboarding(language: AppLanguage, shortcut: KeyboardShortcutPreset, isFullscreen: Bool, shouldScanApps: Bool) {
+        LocalizationManager.shared.language = language
+        KeyboardShortcutManager.shared.setPreset(shortcut)
+        isFullscreenMode = isFullscreen
+        if shouldScanApps {
+            performInitialScanIfNeeded()
+        }
+        UserDefaults.standard.set(true, forKey: Self.onboardingCompletedDefaultsKey)
+        isOnboardingPresented = false
+    }
+
+    private func completeOnboardingSilently() {
+        UserDefaults.standard.set(true, forKey: Self.onboardingCompletedDefaultsKey)
+        isOnboardingPresented = false
+    }
+
+    private func completeOnboardingSilentlyIfUnset() {
+        guard UserDefaults.standard.object(forKey: Self.onboardingCompletedDefaultsKey) == nil else { return }
+        completeOnboardingSilently()
+        performInitialScanIfNeeded()
+    }
+
+    private var hasExistingUserDataForOnboarding: Bool {
+        !items.isEmpty || !apps.isEmpty || !folders.isEmpty || !profiles.isEmpty
+    }
+
+    private var shouldDeferInitialScanForOnboarding: Bool {
+        UserDefaults.standard.object(forKey: Self.onboardingCompletedDefaultsKey) == nil &&
+        !hasExistingUserDataForOnboarding &&
+        !isOnboardingPresented
     }
 
     // MARK: - Order Persistence
@@ -1052,6 +1121,7 @@ final class AppStore: ObservableObject {
 
     // MARK: - Initial scan (once)
     func performInitialScanIfNeeded() {
+        guard !shouldDeferInitialScanForOnboarding else { return }
         if !hasAppliedOrderFromStore {
             loadAllOrder()
         }
@@ -1118,6 +1188,7 @@ final class AppStore: ObservableObject {
                 if self.hasAppliedOrderFromStore && !self.items.isEmpty {
                     self.rebuildItems()
                 }
+                self.refreshSmartSuggestions()
                 self.generateCacheAfterScan()
             }
         }
@@ -1304,6 +1375,146 @@ final class AppStore: ObservableObject {
         triggerFolderUpdate()
         triggerGridRefresh()
         refreshCacheAfterFolderOperation()
+    }
+
+    func recordAppLaunch(_ app: AppInfo) {
+        AppUsageManager.shared.recordLaunch(for: app)
+        refreshSmartSuggestions()
+    }
+
+    func usageRecord(for app: AppInfo) -> AppUsageRecord? {
+        AppUsageManager.shared.record(for: app.url.path)
+    }
+
+    func sortCurrentLayoutByUsage() {
+        let usageManager = AppUsageManager.shared
+
+        func usageScore(for app: AppInfo) -> Int {
+            usageManager.record(for: app.url.path)?.launchCount ?? 0
+        }
+
+        func sortedApps(_ apps: [AppInfo]) -> [AppInfo] {
+            apps.sorted {
+                let lhsCount = usageScore(for: $0)
+                let rhsCount = usageScore(for: $1)
+                if lhsCount != rhsCount { return lhsCount > rhsCount }
+                return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            }
+        }
+
+        func itemScore(_ item: LaunchpadItem) -> Int {
+            switch item {
+            case .app(let app):
+                return usageScore(for: app)
+            case .folder(let folder):
+                return folder.apps.reduce(0) { $0 + usageScore(for: $1) }
+            case .empty:
+                return -1
+            }
+        }
+
+        var updatedFolders: [FolderInfo] = []
+        var sortedItems: [LaunchpadItem] = []
+        for item in items {
+            switch item {
+            case .app:
+                sortedItems.append(item)
+            case .folder(let folder):
+                let updatedFolder = FolderInfo(
+                    id: folder.id,
+                    name: folder.name,
+                    apps: sortedApps(folder.apps),
+                    createdAt: folder.createdAt
+                )
+                updatedFolders.append(updatedFolder)
+                sortedItems.append(.folder(updatedFolder))
+            case .empty:
+                break
+            }
+        }
+
+        sortedItems.sort {
+            let lhsScore = itemScore($0)
+            let rhsScore = itemScore($1)
+            if lhsScore != rhsScore { return lhsScore > rhsScore }
+            return itemTitle($0).localizedCaseInsensitiveCompare(itemTitle($1)) == .orderedAscending
+        }
+
+        let ipp = itemsPerPage
+        if !sortedItems.isEmpty {
+            let remainder = sortedItems.count % ipp
+            if remainder != 0 {
+                for _ in 0..<(ipp - remainder) {
+                    sortedItems.append(.empty(UUID().uuidString))
+                }
+            }
+        }
+
+        openFolder = nil
+        folders = updatedFolders
+        items = sortedItems
+        apps = uniqueApps(from: sortedItems)
+        currentPage = 0
+        searchText = ""
+        saveAllOrder()
+        refreshSmartSuggestions()
+        triggerFolderUpdate()
+        triggerGridRefresh()
+        refreshCacheAfterFolderOperation()
+    }
+
+    func resetAppUsage() {
+        AppUsageManager.shared.reset()
+        refreshSmartSuggestions()
+    }
+
+    func refreshSmartSuggestions() {
+        guard isSmartSuggestionsEnabled else {
+            smartFolderSuggestions = []
+            return
+        }
+
+        let allApps = uniqueApps(from: items)
+        guard !allApps.isEmpty else {
+            smartFolderSuggestions = []
+            return
+        }
+
+        var grouped: [AutoOrganizeCategory: [AppInfo]] = [:]
+        for app in allApps where (AppUsageManager.shared.record(for: app.url.path)?.launchCount ?? 0) > 0 {
+            grouped[autoOrganizeCategory(for: app), default: []].append(app)
+        }
+
+        smartFolderSuggestions = AutoOrganizeCategory.allCases.compactMap { category in
+            guard var apps = grouped[category], apps.count >= 2 else { return nil }
+            apps.sort {
+                let lhsCount = AppUsageManager.shared.record(for: $0.url.path)?.launchCount ?? 0
+                let rhsCount = AppUsageManager.shared.record(for: $1.url.path)?.launchCount ?? 0
+                if lhsCount != rhsCount { return lhsCount > rhsCount }
+                return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            }
+            let totalLaunches = apps.reduce(0) {
+                $0 + (AppUsageManager.shared.record(for: $1.url.path)?.launchCount ?? 0)
+            }
+            return SmartFolderSuggestion(title: category.title, apps: apps, totalLaunches: totalLaunches)
+        }
+        .sorted {
+            if $0.totalLaunches != $1.totalLaunches { return $0.totalLaunches > $1.totalLaunches }
+            return $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+        }
+        .prefix(5)
+        .map { $0 }
+    }
+
+    private func itemTitle(_ item: LaunchpadItem) -> String {
+        switch item {
+        case .app(let app):
+            return app.name
+        case .folder(let folder):
+            return folder.name
+        case .empty:
+            return ""
+        }
     }
 
     private func autoOrganizeCategory(for app: AppInfo) -> AutoOrganizeCategory {
@@ -2630,6 +2841,7 @@ final class AppStore: ObservableObject {
                         let freeApps: [AppInfo] = combined.compactMap { if case let .app(a) = $0 { return a } else { return nil } }
                         self.apps = freeApps
                     }
+                    self.completeOnboardingSilentlyIfUnset()
                 }
                 self.hasAppliedOrderFromStore = true
             }
@@ -2688,6 +2900,7 @@ final class AppStore: ObservableObject {
                         let freeAppsAfterLoad: [AppInfo] = combined.compactMap { if case let .app(a) = $0 { return a } else { return nil } }
                         self.apps = freeAppsAfterLoad
                     }
+                    self.completeOnboardingSilentlyIfUnset()
                 }
                 self.hasAppliedOrderFromStore = true
             }

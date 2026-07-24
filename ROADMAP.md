@@ -19,7 +19,7 @@ Use this checklist to track future features. When the 2.0.0 roadmap is complete,
   - Let users restore a previous profile snapshot.
   - Make it easy to recover after accidental layout changes.
 
-- [ ] 4. App Usage / Smart Suggestions
+- [x] 4. App Usage / Smart Suggestions
   - Track app launches so LaunchNow can sort by real usage.
   - Suggest folders or categories from usage patterns.
   - Add a toggle so users can disable smart suggestions or automatic layout changes.
@@ -40,7 +40,7 @@ Use this checklist to track future features. When the 2.0.0 roadmap is complete,
   - Require Edit Mode before users can reorder apps or create folders.
   - Show drag grid guidance that explains folder creation zones and swap zones while dragging.
 
-- [ ] 8. Onboarding / First Run Setup
+- [x] 8. Onboarding / First Run Setup
   - Guide first-time users through language, shortcut, app scan, and fullscreen mode choices.
   - Reduce setup confusion for new users.
 
@@ -64,8 +64,8 @@ Use this checklist to track future features. When the 2.0.0 roadmap is complete,
 - [x] Diagnostics / Support Panel
 - [x] Performance / Large App Library Polish
 - [x] Folder Customization More
-- [ ] App Usage / Smart Suggestions
-- [ ] Onboarding / First Run Setup
+- [x] App Usage / Smart Suggestions
+- [x] Onboarding / First Run Setup
 
 ## Completed 1.x Roadmap
 

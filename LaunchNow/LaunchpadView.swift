@@ -553,6 +553,16 @@ struct LaunchpadView: View {
                     .transition(.scale(scale: 0.96).combined(with: .opacity))
                     .zIndex(200)
                 }
+
+                if appStore.isOnboardingPresented {
+                    Color.black.opacity(0.24)
+                        .ignoresSafeArea()
+                        .zIndex(290)
+
+                    OnboardingView(appStore: appStore)
+                        .transition(.scale(scale: 0.96).combined(with: .opacity))
+                        .zIndex(300)
+                }
             }
         )
          .onChange(of: appStore.items) {
@@ -578,6 +588,9 @@ struct LaunchpadView: View {
                setupInitialSelection()
                setupWindowShownObserver()
                setupWindowHiddenObserver()
+               DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                   appStore.presentOnboardingIfNeeded()
+               }
                // 监听全局鼠标抬起，确保拖拽状态被正确清理（窗口外释放时）
                if let existing = globalMouseUpMonitor { NSEvent.removeMonitor(existing) }
                globalMouseUpMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseUp]) { _ in
@@ -619,6 +632,7 @@ struct LaunchpadView: View {
     }
     
     private func launchApp(_ app: AppInfo) {
+        appStore.recordAppLaunch(app)
         AppDelegate.shared?.hideWindow()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             NSWorkspace.shared.open(app.url)
