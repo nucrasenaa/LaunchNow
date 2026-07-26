@@ -67,6 +67,54 @@ Use this checklist to track future features. When the 2.0.0 roadmap is complete,
 - [x] App Usage / Smart Suggestions
 - [x] Onboarding / First Run Setup
 
+## Roadmap After 2.0.1
+
+- [ ] 1. Drag & Drop Reliability 2
+  - Make drop targets clearer while dragging.
+  - Reduce folder creation and app swap misses.
+  - Add a debug mode for inspecting drop zones.
+
+- [ ] 2. Updater Hardening
+  - Show clearer download and install progress.
+  - Verify downloaded update artifacts with hashes.
+  - Add a manual download fallback when automatic install fails.
+
+- [ ] 3. First Run / Onboarding Polish
+  - Let new users choose language, shortcut, app scan, search scope, and fullscreen mode in one focused flow.
+  - Make the first launch easier to understand before users reach Settings.
+
+- [ ] 4. Settings Search
+  - Search settings by keywords such as update, grid, shortcut, and backup.
+  - Jump directly to the matching settings section.
+
+- [ ] 5. Advanced Grid Presets
+  - Add presets such as Compact, Balanced, Large Icons, and Dense Work Mode.
+  - Show a preview before applying a preset.
+
+- [ ] 6. Folder UX Improvements
+  - Make folder color, image, and name customization easier to access.
+  - Improve folder sorting and folder locking flows.
+  - Preview folder style changes before applying them.
+
+- [ ] 7. Backup Safety
+  - Preview restore changes before overwriting current data.
+  - Compare local profiles with cloud backups.
+  - Create an automatic backup before import or restore.
+
+- [ ] 8. Diagnostics Upgrade
+  - Add Copy Debug Summary.
+  - Export recent logs alongside debug info.
+  - Check permissions, paths, and update status in a readable support view.
+
+- [ ] 9. Performance Monitor
+  - Show app scan time, cached icon count, and cache health.
+  - Add cache clear and rebuild controls.
+  - Surface useful performance details for large app libraries.
+
+- [ ] 10. Command Palette Actions 2
+  - Add more `Command + K` actions such as Rename, Change Icon, Add to Folder, Open Settings Section, and Backup Now.
+  - Keep command palette actions fast and keyboard-friendly.
+
 ## Completed 1.x Roadmap
 
 - [x] Rename App Display Name

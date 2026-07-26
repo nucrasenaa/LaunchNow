@@ -79,6 +79,7 @@ struct CommandPaletteView: View {
     @State private var selectedIndex = 0
     @State private var spotlightEntries: [CommandPaletteEntry] = []
     @State private var isSearchingSpotlight = false
+    @State private var keyMonitor: Any?
     @FocusState private var isSearchFocused: Bool
 
     private var filteredEntries: [CommandPaletteEntry] {
@@ -166,7 +167,11 @@ struct CommandPaletteView: View {
         .shadow(color: .black.opacity(0.25), radius: 30, x: 0, y: 18)
         .onAppear {
             isSearchFocused = true
+            setupKeyMonitor()
             clampSelection()
+        }
+        .onDisappear {
+            removeKeyMonitor()
         }
         .task(id: query) {
             await searchSpotlightFiles(for: query)
@@ -256,6 +261,58 @@ struct CommandPaletteView: View {
             return
         }
         selectedIndex = max(0, min(selectedIndex + offset, filteredEntries.count - 1))
+    }
+
+    private func setupKeyMonitor() {
+        removeKeyMonitor()
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { event in
+            handleKeyEvent(event)
+        }
+    }
+
+    private func removeKeyMonitor() {
+        if let keyMonitor {
+            NSEvent.removeMonitor(keyMonitor)
+            self.keyMonitor = nil
+        }
+    }
+
+    private func handleKeyEvent(_ event: NSEvent) -> NSEvent? {
+        if isSearchFocused && !isNavigationKey(event) {
+            return event
+        }
+        if isSearchFocused, isIMEComposing() { return event }
+
+        switch event.keyCode {
+        case 36, 76:
+            openSelectedEntry()
+            return nil
+        case 53:
+            onDismiss()
+            return nil
+        case 125:
+            moveSelection(by: 1)
+            return nil
+        case 126:
+            moveSelection(by: -1)
+            return nil
+        default:
+            return event
+        }
+    }
+
+    private func isNavigationKey(_ event: NSEvent) -> Bool {
+        switch event.keyCode {
+        case 36, 53, 76, 125, 126:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func isIMEComposing() -> Bool {
+        guard let editor = NSApp.keyWindow?.firstResponder as? NSTextView else { return false }
+        return editor.hasMarkedText()
     }
 
     private func clampSelection() {

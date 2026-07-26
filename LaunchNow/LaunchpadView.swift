@@ -588,6 +588,7 @@ struct LaunchpadView: View {
                setupInitialSelection()
                setupWindowShownObserver()
                setupWindowHiddenObserver()
+               focusSearchFieldSoon()
                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
                    appStore.presentOnboardingIfNeeded()
                }
@@ -1130,10 +1131,20 @@ extension LaunchpadView {
         windowObserver = NotificationCenter.default.addObserver(forName: .launchpadWindowShown, object: nil, queue: .main) { _ in
             isKeyboardNavigationActive = false
             selectedIndex = 0
-            isSearchFieldFocused = true
+            focusSearchFieldSoon()
             if !appStore.apps.isEmpty {
                 appStore.applyOrderAndFolders()
             }
+        }
+    }
+
+    private func focusSearchFieldSoon() {
+        isSearchFieldFocused = true
+        DispatchQueue.main.async {
+            isSearchFieldFocused = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            isSearchFieldFocused = true
         }
     }
     
