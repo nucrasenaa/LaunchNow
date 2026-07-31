@@ -69,7 +69,7 @@ Use this checklist to track future features. When the 2.0.0 roadmap is complete,
 
 ## Roadmap After 2.0.1
 
-- [ ] 1. Drag & Drop Reliability 2
+- [x] 1. Drag & Drop Reliability 2
   - Make drop targets clearer while dragging.
   - Reduce folder creation and app swap misses.
   - Add a debug mode for inspecting drop zones.

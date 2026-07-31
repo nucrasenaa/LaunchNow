@@ -556,6 +556,27 @@ struct SettingsView: View {
                 gridPreview
                     .frame(minWidth: 260, maxWidth: 360)
             }
+
+            Toggle(isOn: $appStore.isDragDropDebugOverlayEnabled) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(localization.text(.dragDropDebugOverlay))
+                        .font(.headline)
+                    Text(localization.text(.dragDropDebugOverlayDescription))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .toggleStyle(.checkbox)
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color(nsColor: .controlBackgroundColor).opacity(0.72))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(SettingsSection.layout.tint.opacity(0.18))
+            )
         }
     }
 

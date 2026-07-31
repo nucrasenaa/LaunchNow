@@ -160,6 +160,11 @@ final class AppStore: ObservableObject {
             }
         }
     }
+    @Published var isDragDropDebugOverlayEnabled: Bool = false {
+        didSet {
+            UserDefaults.standard.set(isDragDropDebugOverlayEnabled, forKey: Self.dragDropDebugOverlayDefaultsKey)
+        }
+    }
     @Published var searchScope: LaunchpadSearchScope = .launchNowApps {
         didSet {
             UserDefaults.standard.set(searchScope.rawValue, forKey: Self.searchScopeDefaultsKey)
@@ -320,6 +325,7 @@ final class AppStore: ObservableObject {
     private static let lastCloudBackupAtDefaultsKey = "lastCloudBackupAt"
     private static let cloudAutoBackupEnabledDefaultsKey = "cloudAutoBackupEnabled"
     private static let layoutEditingDefaultsKey = "layoutEditing"
+    private static let dragDropDebugOverlayDefaultsKey = "dragDropDebugOverlay"
     private static let smartSuggestionsEnabledDefaultsKey = "smartSuggestionsEnabled"
     private static let onboardingCompletedDefaultsKey = "onboardingCompleted"
     private static let maxProfileHistoryCount = 10
@@ -357,6 +363,7 @@ final class AppStore: ObservableObject {
         let savedSearchScope = UserDefaults.standard.string(forKey: Self.searchScopeDefaultsKey) ?? LaunchpadSearchScope.launchNowApps.rawValue
         self.searchScope = LaunchpadSearchScope(rawValue: savedSearchScope) ?? .launchNowApps
         self.isLayoutEditing = UserDefaults.standard.bool(forKey: Self.layoutEditingDefaultsKey)
+        self.isDragDropDebugOverlayEnabled = UserDefaults.standard.bool(forKey: Self.dragDropDebugOverlayDefaultsKey)
         if UserDefaults.standard.object(forKey: Self.smartSuggestionsEnabledDefaultsKey) == nil {
             self.isSmartSuggestionsEnabled = true
         } else {

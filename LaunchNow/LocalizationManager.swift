@@ -295,6 +295,8 @@ enum L10nKey: String, CaseIterable {
     case layoutLockedHint
     case folderZone
     case swapZone
+    case dragDropDebugOverlay
+    case dragDropDebugOverlayDescription
     case folderName
     case folderColor
     case folderBackground
@@ -616,6 +618,8 @@ final class LocalizationManager: ObservableObject {
             .layoutLockedHint: "Turn on Edit Layout before dragging apps, reordering, or creating folders.",
             .folderZone: "Folder",
             .swapZone: "Swap",
+            .dragDropDebugOverlay: "Show drag/drop debug overlay",
+            .dragDropDebugOverlayDescription: "Display folder and swap zones while dragging so drop target issues are easier to inspect.",
             .folderName: "Folder Name",
             .folderColor: "Folder Color",
             .folderBackground: "Folder Background",
@@ -889,6 +893,8 @@ final class LocalizationManager: ObservableObject {
             .layoutLockedHint: "เปิดแก้ไขเลย์เอาต์ก่อนลากแอป จัดตำแหน่ง หรือสร้างโฟลเดอร์",
             .folderZone: "โฟลเดอร์",
             .swapZone: "สลับตำแหน่ง",
+            .dragDropDebugOverlay: "แสดง debug overlay ตอนลากวาง",
+            .dragDropDebugOverlayDescription: "แสดงโซนสร้างโฟลเดอร์และโซนสลับตำแหน่งระหว่างลาก เพื่อช่วยตรวจปัญหา drop target",
             .folderName: "ชื่อโฟลเดอร์",
             .folderColor: "สีโฟลเดอร์",
             .folderBackground: "พื้นหลังโฟลเดอร์",

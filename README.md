@@ -1,9 +1,9 @@
 # LaunchNow
 
-![LaunchNow 2.0.2 app grid](https://raw.githubusercontent.com/nucrasenaa/LaunchNowNext/main/public/image/current/launch-now-1.jpg)
+![LaunchNow 2.0.3 app grid](https://raw.githubusercontent.com/nucrasenaa/LaunchNowNext/main/public/image/current/launch-now-1.jpg)
 [Download LaunchNow](https://launchnow.gooxsoft.com/) · Alternative Launchpad for macOS Tahoe
 
-Current release: **2.0.2**
+Current release: **2.0.3**
 
 LaunchNow is a polished fork of [ggkevinnnn/LaunchNow](https://github.com/ggkevinnnn/LaunchNow) that keeps your launchpad fast, organized, and fully under your control.
 

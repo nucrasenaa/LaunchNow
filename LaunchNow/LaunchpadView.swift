@@ -31,6 +31,32 @@ private class PageFlipManager: ObservableObject {
     }
 }
 
+private enum ActiveDragDropTarget: Equatable {
+    enum Mode: Equatable {
+        case folder
+        case swap
+    }
+
+    case folder(index: Int)
+    case swap(index: Int)
+
+    var index: Int {
+        switch self {
+        case .folder(let index), .swap(let index):
+            return index
+        }
+    }
+
+    var mode: Mode {
+        switch self {
+        case .folder:
+            return .folder
+        case .swap:
+            return .swap
+        }
+    }
+}
+
 struct LaunchpadView: View {
     @ObservedObject var appStore: AppStore
     @ObservedObject private var localization = LocalizationManager.shared
@@ -41,6 +67,7 @@ struct LaunchpadView: View {
     @State private var dragPreviewPosition: CGPoint = .zero
     @State private var dragPreviewScale: CGFloat = 1.2
     @State private var pendingDropIndex: Int? = nil
+    @State private var activeDragDropTarget: ActiveDragDropTarget? = nil
     @StateObject private var pageFlipManager = PageFlipManager()
     @State private var folderHoverCandidateIndex: Int? = nil
     @State private var folderHoverBeganAt: Date? = nil
@@ -602,6 +629,7 @@ struct LaunchpadView: View {
                        if draggingItem != nil {
                            draggingItem = nil
                            pendingDropIndex = nil
+                           activeDragDropTarget = nil
                            appStore.isDragCreatingFolder = false
                            appStore.folderCreationTarget = nil
                            pageFlipManager.isCooldown = false
@@ -988,6 +1016,7 @@ struct LaunchpadView: View {
         isKeyboardNavigationActive = false
         appStore.isDragCreatingFolder = false
         appStore.folderCreationTarget = nil
+        activeDragDropTarget = nil
         dragPreviewScale = 1.2
         dragPreviewPosition = localPoint
         // 使接力拖拽与普通拖拽一致：预创建新页面以支持边缘翻页
@@ -1057,6 +1086,7 @@ struct LaunchpadView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
                 draggingItem = nil
                 pendingDropIndex = nil
+                activeDragDropTarget = nil
                 clampSelection()
                 // 重置翻页状态
                 pageFlipManager.isCooldown = false
@@ -1393,6 +1423,9 @@ extension LaunchpadView {
                 .frame(height: appHeight)
         } else {
             let shouldAllowHover = draggingItem == nil
+            let activeTargetMode = activeMode(for: globalIndex)
+            let showsDebugZones = appStore.isDragDropDebugOverlayEnabled && draggingItem != nil && draggingItem != item
+            let showsFolderZone = isPotentialFolderDropTarget(item)
 
             let isCenterCreatingTarget: Bool = {
                 guard let draggingItem, let idx = currentItems.firstIndex(of: item) else { return false }
@@ -1426,11 +1459,16 @@ extension LaunchpadView {
                 if appStore.isLayoutEditing,
                    draggingItem != nil,
                    draggingItem != item,
-                   isDragGuideVisible(for: globalIndex, isFolderTarget: isCenterCreatingTarget) {
-                    DragZoneGuide(
-                        mode: isCenterCreatingTarget ? .folder : .swap,
+                   (activeTargetMode != nil || showsDebugZones) {
+                    DragDropZoneOverlay(
+                        activeMode: activeTargetMode,
+                        showsDebugZones: showsDebugZones,
+                        showsFolderZone: showsFolderZone,
                         folderText: localization.text(.folderZone),
-                        swapText: localization.text(.swapZone)
+                        swapText: localization.text(.swapZone),
+                        iconSize: iconSize,
+                        folderHitScale: config.folderCreationHitScale,
+                        iconCenterY: iconCenterYOffset(appHeight: appHeight, iconSize: iconSize)
                     )
                 }
             }
@@ -1593,15 +1631,27 @@ extension LaunchpadView {
         return centerAreaRect.contains(point)
     }
 
+    private func isPotentialFolderDropTarget(_ item: LaunchpadItem) -> Bool {
+        guard let draggingItem, case .app(let draggedApp) = draggingItem else { return false }
+        switch item {
+        case .app(let targetApp):
+            return targetApp != draggedApp
+        case .folder:
+            return true
+        case .empty:
+            return false
+        }
+    }
+
+    private func activeMode(for index: Int) -> ActiveDragDropTarget.Mode? {
+        guard activeDragDropTarget?.index == index else { return nil }
+        return activeDragDropTarget?.mode
+    }
+
     private func iconCenterYOffset(appHeight: CGFloat, iconSize: CGFloat) -> CGFloat {
         let iconAndLabelHeight = iconSize + 8 + 34
         let topPadding = max(0, (appHeight - iconAndLabelHeight) / 2) + 8
         return topPadding + iconSize / 2
-    }
-
-    private func isDragGuideVisible(for index: Int, isFolderTarget: Bool) -> Bool {
-        if isFolderTarget { return true }
-        return pendingDropIndex == index || reorderCandidateIndex == index
     }
 }
 
@@ -1785,6 +1835,7 @@ extension LaunchpadView {
         if point.x <= edgeMargin && appStore.currentPage > 0 {
             // 翻页前取消预定重排，避免跨页时误触发
             cancelScheduledReorder()
+            activeDragDropTarget = nil
             navigateToPreviousPage()
             pageFlipManager.recordFlip()
             return true
@@ -1803,6 +1854,7 @@ extension LaunchpadView {
             }
             // 翻页前取消预定重排，避免跨页时误触发
             cancelScheduledReorder()
+            activeDragDropTarget = nil
             navigateToNextPage()
             pageFlipManager.recordFlip()
             return true
@@ -1973,47 +2025,70 @@ struct DragPreviewItem: View {
     }
 }
 
-struct DragZoneGuide: View {
-    enum Mode {
-        case folder
-        case swap
-    }
-
-    let mode: Mode
+private struct DragDropZoneOverlay: View {
+    let activeMode: ActiveDragDropTarget.Mode?
+    let showsDebugZones: Bool
+    let showsFolderZone: Bool
     let folderText: String
     let swapText: String
+    let iconSize: CGFloat
+    let folderHitScale: CGFloat
+    let iconCenterY: CGFloat
 
-    private var tint: Color {
-        switch mode {
-        case .folder: return .blue
-        case .swap: return .orange
-        }
+    private var isFolderActive: Bool { activeMode == .folder }
+    private var isSwapActive: Bool { activeMode == .swap }
+    private var folderHitSize: CGFloat { iconSize * folderHitScale }
+
+    private var shouldShowSwapZone: Bool {
+        showsDebugZones || isSwapActive
     }
 
-    private var title: String {
-        switch mode {
-        case .folder: return folderText
-        case .swap: return swapText
-        }
+    private var shouldShowFolderZone: Bool {
+        showsFolderZone && (showsDebugZones || isFolderActive)
     }
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 14, style: .continuous)
-            .stroke(tint.opacity(0.9), style: StrokeStyle(lineWidth: 2, dash: mode == .swap ? [6, 5] : []))
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(tint.opacity(0.12))
-            )
-            .overlay(alignment: .top) {
-                Label(title, systemImage: mode == .folder ? "folder.badge.plus" : "arrow.left.arrow.right")
-                    .font(.caption2.weight(.semibold))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(.regularMaterial, in: Capsule())
-                    .foregroundStyle(tint)
-                    .offset(y: -8)
+        GeometryReader { proxy in
+            ZStack {
+                if shouldShowSwapZone {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(
+                            Color.orange.opacity(isSwapActive ? 0.95 : 0.4),
+                            style: StrokeStyle(lineWidth: isSwapActive ? 2.5 : 1.4, dash: isSwapActive ? [6, 4] : [3, 5])
+                        )
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(Color.orange.opacity(isSwapActive ? 0.13 : 0.045))
+                        )
+                        .padding(5)
+                }
+
+                if shouldShowFolderZone {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(
+                            Color.blue.opacity(isFolderActive ? 1 : 0.42),
+                            style: StrokeStyle(lineWidth: isFolderActive ? 2.5 : 1.4, dash: isFolderActive ? [] : [4, 4])
+                        )
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(Color.blue.opacity(isFolderActive ? 0.15 : 0.055))
+                        )
+                        .frame(width: folderHitSize, height: folderHitSize)
+                        .position(x: proxy.size.width / 2, y: iconCenterY)
+                }
+
+                if let activeMode {
+                    Label(activeMode == .folder ? folderText : swapText,
+                          systemImage: activeMode == .folder ? "folder.badge.plus" : "arrow.left.arrow.right")
+                        .font(.caption2.weight(.semibold))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.regularMaterial, in: Capsule())
+                        .foregroundStyle(activeMode == .folder ? Color.blue : Color.orange)
+                        .position(x: proxy.size.width / 2, y: 8)
+                }
             }
-            .padding(6)
+        }
             .allowsHitTesting(false)
     }
 }
@@ -2052,6 +2127,7 @@ extension LaunchpadView {
             isKeyboardNavigationActive = false
             appStore.isDragCreatingFolder = false
             appStore.folderCreationTarget = nil
+            activeDragDropTarget = nil
             dragPreviewScale = 1.2
             dragPreviewPosition = value.location
         }
@@ -2075,6 +2151,15 @@ extension LaunchpadView {
 
         // Re-check the final pointer position directly. The last drag update can be
         // throttled, so relying only on isDragCreatingFolder may miss quick drops.
+        if let finalTarget = dragDropTarget(for: dragging,
+                                            at: dragPreviewPosition,
+                                            containerSize: containerSize,
+                                            columnWidth: columnWidth,
+                                            appHeight: appHeight,
+                                            iconSize: iconSize) {
+            activeDragDropTarget = finalTarget
+        }
+
         if case .app(let app) = dragging,
            let folderTarget = folderDropTarget(for: dragging,
                                                at: dragPreviewPosition,
@@ -2235,6 +2320,7 @@ extension LaunchpadView {
         cancelScheduledReorder()
         draggingItem = nil
         pendingDropIndex = nil
+        activeDragDropTarget = nil
         folderHoverCandidateIndex = nil
         folderHoverBeganAt = nil
         appStore.isDragCreatingFolder = false
@@ -2260,6 +2346,16 @@ extension LaunchpadView {
         if distance < 2.0 { return } // 如果移动距离小于2像素，跳过更新
         
         dragPreviewPosition = point
+        if let dragging = draggingItem {
+            activeDragDropTarget = dragDropTarget(for: dragging,
+                                                  at: point,
+                                                  containerSize: containerSize,
+                                                  columnWidth: columnWidth,
+                                                  appHeight: appHeight,
+                                                  iconSize: iconSize)
+        } else {
+            activeDragDropTarget = nil
+        }
         
         // 性能优化：使用节流机制减少计算频率
         let now = Date()
@@ -2325,6 +2421,7 @@ extension LaunchpadView {
             appStore.isDragCreatingFolder = false
             appStore.folderCreationTarget = nil
             pendingDropIndex = hoveringIndex
+            activeDragDropTarget = .swap(index: hoveringIndex)
         }
     }
 
@@ -2365,6 +2462,57 @@ extension LaunchpadView {
                              width: hitSize,
                              height: hitSize)
         return hitRect.contains(point) ? hoveringItem : nil
+    }
+
+    private func dragDropTarget(for dragging: LaunchpadItem,
+                                at point: CGPoint,
+                                containerSize: CGSize,
+                                columnWidth: CGFloat,
+                                appHeight: CGFloat,
+                                iconSize: CGFloat) -> ActiveDragDropTarget? {
+        guard let hoveringIndex = baseIndexAt(point: point,
+                                              in: containerSize,
+                                              pageIndex: appStore.currentPage,
+                                              columnWidth: columnWidth,
+                                              appHeight: appHeight),
+              filteredItems.indices.contains(hoveringIndex) else {
+            return nil
+        }
+
+        let hoveringItem = filteredItems[hoveringIndex]
+        let isInCenterArea = isPointInCenterArea(
+            point: point,
+            targetIndex: hoveringIndex,
+            containerSize: containerSize,
+            pageIndex: appStore.currentPage,
+            columnWidth: columnWidth,
+            appHeight: appHeight,
+            iconSize: iconSize
+        )
+
+        switch hoveringItem {
+        case .app(let targetApp):
+            if case .app(let draggedApp) = dragging, targetApp != draggedApp, isInCenterArea {
+                return .folder(index: hoveringIndex)
+            }
+            if dragging == .app(targetApp) {
+                return .swap(index: hoveringIndex)
+            }
+            return .swap(index: appInsertionIndex(
+                dragging: dragging,
+                targetApp: targetApp,
+                hoveringIndex: hoveringIndex,
+                columnWidth: columnWidth,
+                appHeight: appHeight
+            ))
+        case .folder:
+            if case .app = dragging, isInCenterArea {
+                return .folder(index: hoveringIndex)
+            }
+            return .swap(index: hoveringIndex)
+        case .empty:
+            return .swap(index: hoveringIndex)
+        }
     }
 
     private func baseIndexAt(point: CGPoint,
@@ -2429,6 +2577,7 @@ extension LaunchpadView {
             appStore.isDragCreatingFolder = false
             appStore.folderCreationTarget = nil
             pendingDropIndex = hoveringIndex
+            activeDragDropTarget = .swap(index: hoveringIndex)
         } else if case .app = dragging {
             handleAppToAppHover(
                 dragging: dragging,
@@ -2443,6 +2592,7 @@ extension LaunchpadView {
             appStore.isDragCreatingFolder = false
             appStore.folderCreationTarget = nil
             pendingDropIndex = hoveringIndex
+            activeDragDropTarget = .swap(index: hoveringIndex)
         }
     }
     
@@ -2468,6 +2618,7 @@ extension LaunchpadView {
             appStore.isDragCreatingFolder = true
             appStore.folderCreationTarget = targetApp
             pendingDropIndex = nil
+            activeDragDropTarget = .folder(index: hoveringIndex)
         } else {
             // นอกโซนกลาง: ตั้งเวลา reorder (เลื่อน-สลับ) เพื่อไม่ให้หนีเร็วเกินไป
             appStore.isDragCreatingFolder = false
@@ -2479,6 +2630,7 @@ extension LaunchpadView {
                 columnWidth: columnWidth,
                 appHeight: appHeight
             )
+            activeDragDropTarget = .swap(index: insertionIndex)
             scheduleReorder(for: insertionIndex)
         }
     }
@@ -2529,10 +2681,12 @@ extension LaunchpadView {
                 appStore.isDragCreatingFolder = true
                 appStore.folderCreationTarget = nil
                 pendingDropIndex = nil
+                activeDragDropTarget = .folder(index: hoveringIndex)
             } else {
                 // นอกโซนกลาง: ตั้งเวลา reorder
                 appStore.isDragCreatingFolder = false
                 appStore.folderCreationTarget = nil
+                activeDragDropTarget = .swap(index: hoveringIndex)
                 scheduleReorder(for: hoveringIndex)
             }
         } else {
@@ -2540,6 +2694,7 @@ extension LaunchpadView {
             appStore.isDragCreatingFolder = false
             appStore.folderCreationTarget = nil
             pendingDropIndex = hoveringIndex
+            activeDragDropTarget = .swap(index: hoveringIndex)
         }
     }
     
@@ -2548,6 +2703,7 @@ extension LaunchpadView {
         appStore.isDragCreatingFolder = false
         appStore.folderCreationTarget = nil
         pendingDropIndex = nil
+        activeDragDropTarget = nil
         folderHoverCandidateIndex = nil
         folderHoverBeganAt = nil
     }
