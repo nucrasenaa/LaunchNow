@@ -238,6 +238,14 @@ enum L10nKey: String, CaseIterable {
     case updateLog
     case noUpdateLogs
     case updateErrorDetailsFormat
+    case updateProgressDownloading
+    case updateProgressVerifying
+    case updateProgressExtracting
+    case updateProgressPreparingInstaller
+    case updateProgressInstalling
+    case updateProgressOpeningInstaller
+    case manualDownloadFallback
+    case manualDownloadFallbackDescription
     case manualUpdateCheck
     case manualUpdateCheckFailed
     case autoUpdateFailed
@@ -561,6 +569,14 @@ final class LocalizationManager: ObservableObject {
             .updateLog: "Update Log",
             .noUpdateLogs: "No update log yet.",
             .updateErrorDetailsFormat: "Details: %@",
+            .updateProgressDownloading: "Downloading update",
+            .updateProgressVerifying: "Verifying download",
+            .updateProgressExtracting: "Extracting update",
+            .updateProgressPreparingInstaller: "Preparing installer",
+            .updateProgressInstalling: "Installing update",
+            .updateProgressOpeningInstaller: "Opening installer",
+            .manualDownloadFallback: "Open Release Page",
+            .manualDownloadFallbackDescription: "Automatic install failed. Download the update manually from GitHub.",
             .manualUpdateCheck: "Manual update check",
             .manualUpdateCheckFailed: "Manual update check failed",
             .autoUpdateFailed: "Auto update failed",
@@ -836,6 +852,14 @@ final class LocalizationManager: ObservableObject {
             .updateLog: "บันทึกอัปเดต",
             .noUpdateLogs: "ยังไม่มีบันทึกอัปเดต",
             .updateErrorDetailsFormat: "รายละเอียด: %@",
+            .updateProgressDownloading: "กำลังดาวน์โหลดอัปเดต",
+            .updateProgressVerifying: "กำลังตรวจสอบไฟล์ดาวน์โหลด",
+            .updateProgressExtracting: "กำลังแตกไฟล์อัปเดต",
+            .updateProgressPreparingInstaller: "กำลังเตรียมตัวติดตั้ง",
+            .updateProgressInstalling: "กำลังติดตั้งอัปเดต",
+            .updateProgressOpeningInstaller: "กำลังเปิดตัวติดตั้ง",
+            .manualDownloadFallback: "เปิดหน้า Release",
+            .manualDownloadFallbackDescription: "การติดตั้งอัตโนมัติล้มเหลว ดาวน์โหลดอัปเดตจาก GitHub ด้วยตนเองได้",
             .manualUpdateCheck: "ตรวจหาอัปเดตด้วยตนเอง",
             .manualUpdateCheckFailed: "ตรวจหาอัปเดตด้วยตนเองล้มเหลว",
             .autoUpdateFailed: "อัปเดตอัตโนมัติล้มเหลว",

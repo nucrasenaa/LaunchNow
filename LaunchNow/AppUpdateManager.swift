@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import CryptoKit
 import Darwin
 import Foundation
 import UserNotifications
@@ -10,10 +11,32 @@ struct AppUpdateInfo {
     let packageURL: URL
     let packageName: String
     let packageKind: PackageKind
+    let expectedDigest: String?
 
     enum PackageKind {
         case zip
         case dmg
+    }
+}
+
+struct AppUpdateProgress {
+    enum Stage {
+        case downloading
+        case verifying
+        case extracting
+        case preparingInstaller
+        case installing
+        case openingInstaller
+    }
+
+    let stage: Stage
+    let detail: String
+    let completedBytes: Int64?
+    let totalBytes: Int64?
+
+    var fractionCompleted: Double? {
+        guard let completedBytes, let totalBytes, totalBytes > 0 else { return nil }
+        return min(1, max(0, Double(completedBytes) / Double(totalBytes)))
     }
 }
 
@@ -23,6 +46,20 @@ struct AppUpdateLogEntry: Identifiable {
     let title: String
     let detail: String
     let isError: Bool
+}
+
+enum AppUpdateError: LocalizedError {
+    case digestMismatch(expected: String, actual: String)
+    case installedVersionMismatch(expected: String, actual: String?)
+
+    var errorDescription: String? {
+        switch self {
+        case .digestMismatch(let expected, let actual):
+            return "Update package hash mismatch. Expected \(expected), got \(actual)."
+        case .installedVersionMismatch(let expected, let actual):
+            return "The downloaded app version does not match the release. Expected \(expected), got \(actual ?? "unknown")."
+        }
+    }
 }
 
 final class AppUpdateManager: ObservableObject {
@@ -59,6 +96,8 @@ final class AppUpdateManager: ObservableObject {
     @Published private(set) var lastAutomaticCheckAt: Date?
     @Published private(set) var lastAutomaticCheckFailed = false
     @Published private(set) var lastUpdateErrorMessage: String?
+    @Published private(set) var updateProgress: AppUpdateProgress?
+    @Published private(set) var manualDownloadUpdate: AppUpdateInfo?
     @Published private(set) var updateLogs: [AppUpdateLogEntry] = []
 
     private init() {
@@ -117,7 +156,34 @@ final class AppUpdateManager: ObservableObject {
         lastUpdateErrorMessage = nil
     }
 
+    @MainActor
+    func clearManualDownloadFallback() {
+        manualDownloadUpdate = nil
+    }
+
+    @MainActor
+    func prepareManualDownloadFallback(for update: AppUpdateInfo) {
+        manualDownloadUpdate = update
+        recordUpdateLog(title: "Manual download fallback", detail: "Open the release page to install version \(update.version) manually.")
+    }
+
+    @MainActor
+    func openManualDownloadFallback(_ update: AppUpdateInfo? = nil) {
+        let fallbackUpdate = update ?? manualDownloadUpdate ?? automaticallyAvailableUpdate
+        guard let fallbackUpdate else { return }
+        _ = NSWorkspace.shared.open(fallbackUpdate.releaseURL)
+        recordUpdateLog(title: "Manual download fallback", detail: "Opened release page for version \(fallbackUpdate.version).")
+    }
+
+    @MainActor
+    private func setUpdateProgress(_ progress: AppUpdateProgress?) {
+        updateProgress = progress
+    }
+
     func readableError(_ error: Error) -> String {
+        if let updateError = error as? AppUpdateError {
+            return updateError.localizedDescription
+        }
         if let urlError = error as? URLError {
             switch urlError.code {
             case .notConnectedToInternet:
@@ -157,15 +223,23 @@ final class AppUpdateManager: ObservableObject {
             releaseURL: releaseURL,
             packageURL: packageURL,
             packageName: asset.name,
-            packageKind: packageKind
+            packageKind: packageKind,
+            expectedDigest: asset.digest
         )
     }
 
     func downloadAndInstall(_ update: AppUpdateInfo) async throws -> URL {
-        let (temporaryURL, response) = try await URLSession.shared.download(from: update.packageURL)
-        guard let httpResponse = response as? HTTPURLResponse, 200..<300 ~= httpResponse.statusCode else {
-            throw URLError(.badServerResponse)
+        await MainActor.run {
+            self.manualDownloadUpdate = nil
         }
+        defer {
+            Task { @MainActor in
+                self.updateProgress = nil
+            }
+        }
+
+        let temporaryURL = try await downloadPackage(update)
+        try await verifyDownloadedPackage(temporaryURL, update: update)
 
         switch update.packageKind {
         case .zip:
@@ -229,7 +303,9 @@ final class AppUpdateManager: ObservableObject {
             let message = readableError(error)
             await MainActor.run {
                 self.lastAutomaticCheckFailed = true
+                self.manualDownloadUpdate = update
                 self.recordUpdateLog(title: "Automatic update failed", detail: message, isError: true)
+                self.prepareManualDownloadFallback(for: update)
             }
         }
     }
@@ -268,6 +344,103 @@ final class AppUpdateManager: ObservableObject {
         }
     }
 
+    private func downloadPackage(_ update: AppUpdateInfo) async throws -> URL {
+        await MainActor.run {
+            self.setUpdateProgress(AppUpdateProgress(
+                stage: .downloading,
+                detail: "Starting \(update.packageName)",
+                completedBytes: 0,
+                totalBytes: nil
+            ))
+        }
+
+        let (bytes, response) = try await URLSession.shared.bytes(from: update.packageURL)
+        guard let httpResponse = response as? HTTPURLResponse, 200..<300 ~= httpResponse.statusCode else {
+            throw URLError(.badServerResponse)
+        }
+
+        let expectedBytes = httpResponse.expectedContentLength > 0 ? httpResponse.expectedContentLength : nil
+        let temporaryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("LaunchNow-\(UUID().uuidString)-\(update.packageName)")
+        FileManager.default.createFile(atPath: temporaryURL.path, contents: nil)
+
+        let fileHandle = try FileHandle(forWritingTo: temporaryURL)
+        defer {
+            try? fileHandle.close()
+        }
+
+        var downloadedBytes: Int64 = 0
+        var buffer = Data()
+        buffer.reserveCapacity(64 * 1024)
+
+        for try await byte in bytes {
+            buffer.append(byte)
+            if buffer.count >= 64 * 1024 {
+                try fileHandle.write(contentsOf: buffer)
+                downloadedBytes += Int64(buffer.count)
+                buffer.removeAll(keepingCapacity: true)
+                await updateDownloadProgress(update, completedBytes: downloadedBytes, totalBytes: expectedBytes)
+            }
+        }
+
+        if !buffer.isEmpty {
+            try fileHandle.write(contentsOf: buffer)
+            downloadedBytes += Int64(buffer.count)
+            await updateDownloadProgress(update, completedBytes: downloadedBytes, totalBytes: expectedBytes)
+        }
+
+        return temporaryURL
+    }
+
+    private func updateDownloadProgress(_ update: AppUpdateInfo, completedBytes: Int64, totalBytes: Int64?) async {
+        let detail: String
+        if let totalBytes {
+            detail = "\(byteFormatter.string(fromByteCount: completedBytes)) of \(byteFormatter.string(fromByteCount: totalBytes))"
+        } else {
+            detail = byteFormatter.string(fromByteCount: completedBytes)
+        }
+        await MainActor.run {
+            self.setUpdateProgress(AppUpdateProgress(
+                stage: .downloading,
+                detail: detail,
+                completedBytes: completedBytes,
+                totalBytes: totalBytes
+            ))
+        }
+    }
+
+    private func verifyDownloadedPackage(_ packageURL: URL, update: AppUpdateInfo) async throws {
+        await MainActor.run {
+            self.setUpdateProgress(AppUpdateProgress(
+                stage: .verifying,
+                detail: "Verifying \(update.packageName)",
+                completedBytes: nil,
+                totalBytes: nil
+            ))
+        }
+
+        guard let expectedDigest = update.expectedDigest, !expectedDigest.isEmpty else {
+            await MainActor.run {
+                self.recordUpdateLog(title: "Hash verification", detail: "No SHA-256 digest was provided by GitHub for \(update.packageName).")
+            }
+            return
+        }
+
+        let normalizedExpectedDigest = expectedDigest
+            .replacingOccurrences(of: "sha256:", with: "", options: [.caseInsensitive])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        let actualDigest = try sha256Digest(for: packageURL)
+
+        guard actualDigest == normalizedExpectedDigest else {
+            throw AppUpdateError.digestMismatch(expected: normalizedExpectedDigest, actual: actualDigest)
+        }
+
+        await MainActor.run {
+            self.recordUpdateLog(title: "Hash verified", detail: "SHA-256 matched for \(update.packageName).")
+        }
+    }
+
     private func installFromZip(_ zipURL: URL, update: AppUpdateInfo) async throws -> URL {
         let fileManager = FileManager.default
         let workDirectory = fileManager.temporaryDirectory
@@ -275,14 +448,33 @@ final class AppUpdateManager: ObservableObject {
         let extractDirectory = workDirectory.appendingPathComponent("Extracted", isDirectory: true)
         try fileManager.createDirectory(at: extractDirectory, withIntermediateDirectories: true)
 
+        await MainActor.run {
+            self.setUpdateProgress(AppUpdateProgress(
+                stage: .extracting,
+                detail: update.packageName,
+                completedBytes: nil,
+                totalBytes: nil
+            ))
+        }
+
         let zipDestination = workDirectory.appendingPathComponent(update.packageName)
         try fileManager.moveItem(at: zipURL, to: zipDestination)
         try runProcess("/usr/bin/ditto", arguments: ["-x", "-k", zipDestination.path, extractDirectory.path])
 
         let sourceAppURL = try findLaunchNowApp(in: extractDirectory)
+        try verifyAppBundleVersion(sourceAppURL, expectedVersion: update.version)
         let destinationAppURL = Bundle.main.bundleURL
         guard destinationAppURL.pathExtension == "app" else {
             throw URLError(.cannotCreateFile)
+        }
+
+        await MainActor.run {
+            self.setUpdateProgress(AppUpdateProgress(
+                stage: .preparingInstaller,
+                detail: sourceAppURL.lastPathComponent,
+                completedBytes: nil,
+                totalBytes: nil
+            ))
         }
 
         let scriptURL = workDirectory.appendingPathComponent("install.sh")
@@ -308,6 +500,12 @@ final class AppUpdateManager: ObservableObject {
         }
 
         await MainActor.run {
+            self.setUpdateProgress(AppUpdateProgress(
+                stage: .installing,
+                detail: destinationAppURL.lastPathComponent,
+                completedBytes: nil,
+                totalBytes: nil
+            ))
             NSApp.terminate(nil)
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                 exit(0)
@@ -317,6 +515,15 @@ final class AppUpdateManager: ObservableObject {
     }
 
     private func saveAndOpenDMG(_ temporaryURL: URL, update: AppUpdateInfo) async throws -> URL {
+        await MainActor.run {
+            self.setUpdateProgress(AppUpdateProgress(
+                stage: .openingInstaller,
+                detail: update.packageName,
+                completedBytes: nil,
+                totalBytes: nil
+            ))
+        }
+
         let downloadsDirectory = try FileManager.default.url(
             for: .downloadsDirectory,
             in: .userDomainMask,
@@ -436,6 +643,30 @@ final class AppUpdateManager: ObservableObject {
             .replacingOccurrences(of: "\n", with: "\\n") + "\""
     }
 
+    private var byteFormatter: ByteCountFormatter {
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useKB, .useMB, .useGB]
+        formatter.countStyle = .file
+        return formatter
+    }
+
+    private func sha256Digest(for fileURL: URL) throws -> String {
+        let data = try Data(contentsOf: fileURL)
+        let digest = SHA256.hash(data: data)
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    private func verifyAppBundleVersion(_ appURL: URL, expectedVersion: String) throws {
+        let infoPlistURL = appURL.appendingPathComponent("Contents/Info.plist")
+        let infoData = try Data(contentsOf: infoPlistURL)
+        let plist = try PropertyListSerialization.propertyList(from: infoData, options: [], format: nil)
+        let info = plist as? [String: Any]
+        let actualVersion = info?["CFBundleShortVersionString"] as? String
+        guard actualVersion == expectedVersion else {
+            throw AppUpdateError.installedVersionMismatch(expected: expectedVersion, actual: actualVersion)
+        }
+    }
+
     private var currentVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
     }
@@ -460,6 +691,7 @@ private struct GitHubRelease: Decodable {
 private struct GitHubReleaseAsset: Decodable {
     let name: String
     let browserDownloadURL: String
+    let digest: String?
 
     var packageKind: AppUpdateInfo.PackageKind? {
         let lowercasedName = name.lowercased()
@@ -471,5 +703,6 @@ private struct GitHubReleaseAsset: Decodable {
     enum CodingKeys: String, CodingKey {
         case name
         case browserDownloadURL = "browser_download_url"
+        case digest
     }
 }

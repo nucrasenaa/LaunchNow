@@ -74,7 +74,7 @@ Use this checklist to track future features. When the 2.0.0 roadmap is complete,
   - Reduce folder creation and app swap misses.
   - Add a debug mode for inspecting drop zones.
 
-- [ ] 2. Updater Hardening
+- [x] 2. Updater Hardening
   - Show clearer download and install progress.
   - Verify downloaded update artifacts with hashes.
   - Add a manual download fallback when automatic install fails.

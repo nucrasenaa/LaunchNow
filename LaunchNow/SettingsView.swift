@@ -1508,9 +1508,11 @@ struct SettingsView: View {
                     }
                 }
 
-                if isCheckingForUpdates || isInstallingUpdate {
-                    ProgressView()
+                if isCheckingForUpdates {
+                    ProgressView(localization.text(.checkingForUpdates))
                         .controlSize(.small)
+                } else if let updateProgress = updateManager.updateProgress {
+                    updateProgressView(updateProgress)
                 }
 
                 updateStatusPanel
@@ -1559,6 +1561,24 @@ struct SettingsView: View {
                     .textSelection(.enabled)
             }
 
+            if let manualDownloadUpdate = updateManager.manualDownloadUpdate ?? availableUpdate ?? updateManager.automaticallyAvailableUpdate,
+               updateManager.lastUpdateErrorMessage != nil {
+                HStack(alignment: .center, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(localization.text(.manualDownloadFallbackDescription))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button {
+                        updateManager.openManualDownloadFallback(manualDownloadUpdate)
+                    } label: {
+                        Label(localization.text(.manualDownloadFallback), systemImage: "safari")
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+
             if updateManager.updateLogs.isEmpty {
                 Text(localization.text(.noUpdateLogs))
                     .font(.caption)
@@ -1598,6 +1618,38 @@ struct SettingsView: View {
         )
     }
 
+    private func updateProgressView(_ progress: AppUpdateProgress) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(updateProgressTitle(progress.stage))
+                    .font(.footnote.weight(.semibold))
+                Spacer()
+                Text(progress.detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let fractionCompleted = progress.fractionCompleted {
+                ProgressView(value: fractionCompleted)
+            } else {
+                ProgressView()
+                    .controlSize(.small)
+            }
+        }
+        .frame(maxWidth: 420, alignment: .leading)
+    }
+
+    private func updateProgressTitle(_ stage: AppUpdateProgress.Stage) -> String {
+        switch stage {
+        case .downloading: return localization.text(.updateProgressDownloading)
+        case .verifying: return localization.text(.updateProgressVerifying)
+        case .extracting: return localization.text(.updateProgressExtracting)
+        case .preparingInstaller: return localization.text(.updateProgressPreparingInstaller)
+        case .installing: return localization.text(.updateProgressInstalling)
+        case .openingInstaller: return localization.text(.updateProgressOpeningInstaller)
+        }
+    }
+
     private var currentUpdateStatusText: String {
         if let updateStatusMessage {
             return updateStatusMessage
@@ -1629,6 +1681,7 @@ struct SettingsView: View {
                     if update == nil {
                         updateManager.clearAutomaticallyAvailableUpdate()
                     }
+                    updateManager.clearManualDownloadFallback()
                     updateStatusMessage = update.map { localization.text(.updateAvailableFormat, $0.version) } ?? localization.text(.appUpToDate)
                     updateManager.clearUpdateError()
                     updateManager.recordUpdateLog(
@@ -1661,6 +1714,7 @@ struct SettingsView: View {
                     await MainActor.run {
                         updateManager.clearAutomaticallyAvailableUpdate()
                         updateManager.clearUpdateError()
+                        updateManager.clearManualDownloadFallback()
                         updateStatusMessage = localization.text(.appUpToDate)
                         updateManager.recordUpdateLog(title: localization.text(.autoUpdateNow), detail: localization.text(.appUpToDate))
                         isCheckingForUpdates = false
@@ -1697,6 +1751,7 @@ struct SettingsView: View {
                         ? localization.text(.installingUpdateRelaunch)
                         : localization.text(.updateDownloadedFormat, destinationURL.lastPathComponent)
                     updateManager.clearUpdateError()
+                    updateManager.clearManualDownloadFallback()
                     updateManager.recordUpdateLog(title: localization.text(.installUpdate), detail: updateStatusMessage ?? "")
                     isInstallingUpdate = false
                 }
@@ -1705,6 +1760,7 @@ struct SettingsView: View {
                     let detail = updateManager.readableError(error)
                     updateStatusMessage = localization.text(.updateInstallFailed)
                     updateManager.recordUpdateLog(title: localization.text(.updateInstallFailed), detail: detail, isError: true)
+                    updateManager.prepareManualDownloadFallback(for: update)
                     isInstallingUpdate = false
                 }
                 }
