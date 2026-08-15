@@ -72,6 +72,8 @@ enum L10nKey: String, CaseIterable {
     case appSources
     case data
     case about
+    case settingsSearchPlaceholder
+    case settingsSearchNoResults
     case refresh
     case resetLayout
     case quit
@@ -100,12 +102,23 @@ enum L10nKey: String, CaseIterable {
     case runInBackgroundDescription
     case onboardingTitle
     case onboardingDescription
+    case onboardingBasicsTitle
+    case onboardingBasicsDescription
+    case onboardingPreferencesTitle
+    case onboardingPreferencesDescription
+    case onboardingSearchScopeTitle
     case onboardingLanguageTitle
     case onboardingShortcutTitle
     case onboardingScanAppsTitle
     case onboardingScanAppsDescription
     case onboardingFullscreenTitle
     case onboardingFullscreenDescription
+    case onboardingReadyTitle
+    case onboardingReadyDescription
+    case onboardingEnabled
+    case onboardingDisabled
+    case onboardingBack
+    case onboardingNext
     case onboardingStart
     case searchScope
     case searchScopeDescription
@@ -403,6 +416,8 @@ final class LocalizationManager: ObservableObject {
             .appSources: "App Sources",
             .data: "Data",
             .about: "About",
+            .settingsSearchPlaceholder: "Search settings",
+            .settingsSearchNoResults: "No matching settings",
             .refresh: "Refresh",
             .resetLayout: "Reset Layout",
             .quit: "Quit",
@@ -431,12 +446,23 @@ final class LocalizationManager: ObservableObject {
             .runInBackgroundDescription: "Add LaunchNow to the Dock or use keyboard shortcuts to open the window quickly.",
             .onboardingTitle: "Set up LaunchNow",
             .onboardingDescription: "Choose the basics now. You can change these later in Settings.",
+            .onboardingBasicsTitle: "Start with the basics",
+            .onboardingBasicsDescription: "Choose your language and the shortcut you will use most.",
+            .onboardingPreferencesTitle: "Make LaunchNow fit your workflow",
+            .onboardingPreferencesDescription: "Choose what search can see and how the launcher opens.",
+            .onboardingSearchScopeTitle: "Search scope",
             .onboardingLanguageTitle: "Language",
             .onboardingShortcutTitle: "Global Shortcut",
             .onboardingScanAppsTitle: "Scan apps now",
             .onboardingScanAppsDescription: "Find installed applications so search and import are ready.",
             .onboardingFullscreenTitle: "Fullscreen Mode",
             .onboardingFullscreenDescription: "Use Launchpad-like fullscreen spacing.",
+            .onboardingReadyTitle: "You are ready to launch",
+            .onboardingReadyDescription: "Review your choices. You can change everything later in Settings.",
+            .onboardingEnabled: "On",
+            .onboardingDisabled: "Off",
+            .onboardingBack: "Back",
+            .onboardingNext: "Continue",
             .onboardingStart: "Start Using LaunchNow",
             .searchScope: "Search scope",
             .searchScopeDescription: "Choose whether LaunchNow search includes only added apps or every app found on this Mac.",
@@ -686,6 +712,8 @@ final class LocalizationManager: ObservableObject {
             .appSources: "แหล่งแอป",
             .data: "ข้อมูล",
             .about: "เกี่ยวกับ",
+            .settingsSearchPlaceholder: "ค้นหาการตั้งค่า",
+            .settingsSearchNoResults: "ไม่พบการตั้งค่าที่ตรงกัน",
             .refresh: "รีเฟรช",
             .resetLayout: "รีเซ็ตเลย์เอาต์",
             .quit: "ออก",
@@ -714,12 +742,23 @@ final class LocalizationManager: ObservableObject {
             .runInBackgroundDescription: "เพิ่ม LaunchNow ไว้ใน Dock หรือใช้คีย์ลัดเพื่อเปิดหน้าต่างได้รวดเร็ว",
             .onboardingTitle: "ตั้งค่า LaunchNow",
             .onboardingDescription: "เลือกค่าพื้นฐานตอนนี้ และเปลี่ยนภายหลังได้ใน Settings",
+            .onboardingBasicsTitle: "เริ่มจากค่าพื้นฐาน",
+            .onboardingBasicsDescription: "เลือกภาษาและคีย์ลัดที่คุณจะใช้บ่อยที่สุด",
+            .onboardingPreferencesTitle: "ปรับ LaunchNow ให้เข้ากับการใช้งาน",
+            .onboardingPreferencesDescription: "เลือกขอบเขตการค้นหาและรูปแบบการเปิด launcher",
+            .onboardingSearchScopeTitle: "ขอบเขตการค้นหา",
             .onboardingLanguageTitle: "ภาษา",
             .onboardingShortcutTitle: "คีย์ลัดส่วนกลาง",
             .onboardingScanAppsTitle: "สแกนแอปตอนนี้",
             .onboardingScanAppsDescription: "ค้นหาแอปที่ติดตั้งไว้ เพื่อให้ search และ import พร้อมใช้งาน",
             .onboardingFullscreenTitle: "โหมดเต็มหน้าจอ",
             .onboardingFullscreenDescription: "ใช้ระยะห่างแบบ Launchpad เต็มหน้าจอ",
+            .onboardingReadyTitle: "พร้อมเริ่มใช้งานแล้ว",
+            .onboardingReadyDescription: "ตรวจสอบค่าที่เลือก คุณสามารถเปลี่ยนทุกอย่างได้ภายหลังใน Settings",
+            .onboardingEnabled: "เปิด",
+            .onboardingDisabled: "ปิด",
+            .onboardingBack: "ย้อนกลับ",
+            .onboardingNext: "ถัดไป",
             .onboardingStart: "เริ่มใช้ LaunchNow",
             .searchScope: "ขอบเขตการค้นหา",
             .searchScopeDescription: "เลือกว่าจะค้นหาเฉพาะแอปที่เพิ่มใน LaunchNow หรือค้นหาแอปทั้งหมดที่พบในเครื่องนี้",

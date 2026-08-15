@@ -79,11 +79,11 @@ Use this checklist to track future features. When the 2.0.0 roadmap is complete,
   - Verify downloaded update artifacts with hashes.
   - Add a manual download fallback when automatic install fails.
 
-- [ ] 3. First Run / Onboarding Polish
+- [x] 3. First Run / Onboarding Polish
   - Let new users choose language, shortcut, app scan, search scope, and fullscreen mode in one focused flow.
   - Make the first launch easier to understand before users reach Settings.
 
-- [ ] 4. Settings Search
+- [x] 4. Settings Search
   - Search settings by keywords such as update, grid, shortcut, and backup.
   - Jump directly to the matching settings section.
 

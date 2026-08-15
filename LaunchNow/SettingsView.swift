@@ -55,6 +55,87 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
         case .about: return .gray
         }
     }
+
+    func searchTerms(_ localization: LocalizationManager) -> [String] {
+        switch self {
+        case .general:
+            return [
+                title(localization),
+                localization.text(.language),
+                localization.text(.keyboardShortcut),
+                localization.text(.searchScope),
+                "general", "language", "shortcut", "hotkey", "search", "fullscreen"
+            ]
+        case .appearance:
+            return [
+                title(localization),
+                localization.text(.appearancePreset),
+                localization.text(.background),
+                localization.text(.backgroundOpacity),
+                localization.text(.backgroundBlur),
+                "appearance", "theme", "background", "blur", "opacity", "glass"
+            ]
+        case .layout:
+            return [
+                title(localization),
+                localization.text(.columns),
+                localization.text(.rows),
+                localization.text(.dragDropDebugOverlay),
+                localization.text(.layoutLocked),
+                localization.text(.editLayout),
+                "layout", "grid", "columns", "rows", "drag", "drop", "edit", "lock"
+            ]
+        case .apps:
+            return [
+                title(localization),
+                localization.text(.addApp),
+                localization.text(.remove),
+                localization.text(.renameApp),
+                localization.text(.changeIcon),
+                localization.text(.folders),
+                localization.text(.smartSuggestions),
+                "apps", "applications", "import", "remove", "rename", "icon", "folder", "usage", "category"
+            ]
+        case .appSources:
+            return [
+                title(localization),
+                localization.text(.manageAppLibraries),
+                localization.text(.systemDirectories),
+                localization.text(.customDirectories),
+                localization.text(.addFolders),
+                "app sources", "scan", "library", "libraries", "directory", "directories", "path"
+            ]
+        case .data:
+            return [
+                title(localization),
+                localization.text(.profiles),
+                localization.text(.profileVersionHistory),
+                localization.text(.cloudBackup),
+                localization.text(.backupNow),
+                localization.text(.restoreFromCloud),
+                localization.text(.exportData),
+                localization.text(.importData),
+                "data", "profile", "history", "backup", "restore", "cloud", "sync", "export", "import"
+            ]
+        case .diagnostics:
+            return [
+                title(localization),
+                localization.text(.diagnosticsSummary),
+                localization.text(.exportDebugInfo),
+                "diagnostics", "debug", "support", "logs", "permissions", "performance"
+            ]
+        case .about:
+            return [
+                title(localization),
+                localization.text(.autoCheckUpdates),
+                localization.text(.automaticInstallUpdates),
+                localization.text(.checkForUpdates),
+                localization.text(.versionFormat),
+                localization.text(.uninstall),
+                "about", "version", "update", "updates", "release", "install", "uninstall"
+            ]
+        }
+    }
 }
 
 struct SettingsView: View {
@@ -86,6 +167,7 @@ struct SettingsView: View {
 
     // App list search (Apps pane)
     @State private var appListSearchText: String = ""
+    @State private var settingsSearchText: String = ""
 
     // Max sheet height (80% of visible screen height)
     private var sheetMaxHeight: CGFloat {
@@ -129,6 +211,9 @@ struct SettingsView: View {
                 appStore.performInitialScanIfNeeded()
             }
         }
+        .onChange(of: settingsSearchText) { _, _ in
+            selectFirstMatchingSettingsSectionIfNeeded()
+        }
         .sheet(isPresented: $isImportSheetPresented) {
             ImportAppsSheet(appStore: appStore, isPresented: $isImportSheetPresented)
                 .frame(minWidth: 640, minHeight: 420)
@@ -161,6 +246,24 @@ struct SettingsView: View {
         }
     }
 
+    private var matchingSettingsSections: [SettingsSection] {
+        let query = settingsSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return SettingsSection.allCases }
+
+        return SettingsSection.allCases.filter { section in
+            section.searchTerms(localization).contains { term in
+                term.localizedCaseInsensitiveContains(query)
+            }
+        }
+    }
+
+    private func selectFirstMatchingSettingsSectionIfNeeded() {
+        guard let firstMatch = matchingSettingsSections.first else { return }
+        if !matchingSettingsSections.contains(selected) {
+            selected = firstMatch
+        }
+    }
+
     // MARK: - Sidebar
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -176,9 +279,39 @@ struct SettingsView: View {
             .padding(.top, 16)
             .padding(.bottom, 8)
 
+            TextField(localization.text(.settingsSearchPlaceholder), text: $settingsSearchText)
+                .textFieldStyle(.roundedBorder)
+                .overlay(alignment: .trailing) {
+                    if !settingsSearchText.isEmpty {
+                        Button {
+                            settingsSearchText = ""
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.trailing, 7)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+
             ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
-                    ForEach(SettingsSection.allCases) { section in
+                    if matchingSettingsSections.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Image(systemName: "magnifyingglass")
+                                .foregroundStyle(.secondary)
+                            Text(localization.text(.settingsSearchNoResults))
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 12)
+                    }
+
+                    ForEach(matchingSettingsSections) { section in
                         Button {
                             selected = section
                         } label: {

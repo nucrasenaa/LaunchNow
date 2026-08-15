@@ -1,15 +1,17 @@
 # LaunchNow
 
-![LaunchNow 2.0.4 app grid](https://raw.githubusercontent.com/nucrasenaa/LaunchNowNext/main/public/image/current/launch-now-1.jpg)
+![LaunchNow 2.0.5 app grid](https://raw.githubusercontent.com/nucrasenaa/LaunchNowNext/main/public/image/current/launch-now-1.jpg)
 [Download LaunchNow](https://launchnow.gooxsoft.com/) · Alternative Launchpad for macOS Tahoe
 
-Current release: **2.0.4**
+Current release: **2.0.5**
 
 LaunchNow is a polished fork of [ggkevinnnn/LaunchNow](https://github.com/ggkevinnnn/LaunchNow) that keeps your launchpad fast, organized, and fully under your control.
 
 ## Highlights
 
 - **Streamlined settings** with intuitive sections for General, Appearance, Grid Layout, App Management, App Sources, Data, and About.
+- **Settings search** to find keywords such as updates, grid, shortcuts, backup, and background, then jump directly to the matching section.
+- **Guided first-run setup** for language, global shortcut, search scope, app scanning, and fullscreen mode.
 - **Global keyboard shortcut** to show or hide LaunchNow while it keeps running in the background. The default shortcut is `Option + Space`, and it can be changed in Settings.
 - **Custom grid designer** to tune columns (3–12), rows (2–8), use quick `+` / `-` controls, and instantly preview the page density.
 - **App Sources control** to add external drives or custom folders that LaunchNow monitors alongside the default system locations.

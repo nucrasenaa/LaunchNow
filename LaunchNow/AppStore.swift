@@ -1089,10 +1089,17 @@ final class AppStore: ObservableObject {
         isOnboardingPresented = true
     }
 
-    func completeOnboarding(language: AppLanguage, shortcut: KeyboardShortcutPreset, isFullscreen: Bool, shouldScanApps: Bool) {
+    func completeOnboarding(
+        language: AppLanguage,
+        shortcut: KeyboardShortcutPreset,
+        isFullscreen: Bool,
+        shouldScanApps: Bool,
+        searchScope: LaunchpadSearchScope
+    ) {
         LocalizationManager.shared.language = language
         KeyboardShortcutManager.shared.setPreset(shortcut)
         isFullscreenMode = isFullscreen
+        self.searchScope = searchScope
         if shouldScanApps {
             performInitialScanIfNeeded()
         }
