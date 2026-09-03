@@ -155,6 +155,18 @@ enum L10nKey: String, CaseIterable {
     case gridPreview
     case gridPreviewDescription
     case gridDensity
+    case gridPresets
+    case gridPresetsDescription
+    case gridPresetCompact
+    case gridPresetCompactDescription
+    case gridPresetBalanced
+    case gridPresetBalancedDescription
+    case gridPresetLargeIcons
+    case gridPresetLargeIconsDescription
+    case gridPresetDenseWorkMode
+    case gridPresetDenseWorkModeDescription
+    case gridPresetApply
+    case gridPresetPreviewFormat
     case addApp
     case resetApp
     case autoOrganizeApps
@@ -499,6 +511,18 @@ final class LocalizationManager: ObservableObject {
             .gridPreview: "Preview",
             .gridPreviewDescription: "A quick look at the current page density.",
             .gridDensity: "Grid density",
+            .gridPresets: "Grid presets",
+            .gridPresetsDescription: "Choose a starting layout and preview it before applying.",
+            .gridPresetCompact: "Compact",
+            .gridPresetCompactDescription: "Balanced space for everyday browsing.",
+            .gridPresetBalanced: "Balanced",
+            .gridPresetBalancedDescription: "The default mix of space and app visibility.",
+            .gridPresetLargeIcons: "Large Icons",
+            .gridPresetLargeIconsDescription: "Fewer apps per page with roomier icons.",
+            .gridPresetDenseWorkMode: "Dense Work Mode",
+            .gridPresetDenseWorkModeDescription: "More apps visible for focused workflows.",
+            .gridPresetApply: "Apply preset",
+            .gridPresetPreviewFormat: "Preview: %@ (%d × %d)",
             .addApp: "Add App",
             .resetApp: "Reset App",
             .autoOrganizeApps: "Auto-organize Apps",
@@ -795,6 +819,18 @@ final class LocalizationManager: ObservableObject {
             .gridPreview: "ตัวอย่าง",
             .gridPreviewDescription: "ดูความหนาแน่นของหน้าปัจจุบันแบบรวดเร็ว",
             .gridDensity: "ความหนาแน่นของกริด",
+            .gridPresets: "รูปแบบกริดสำเร็จรูป",
+            .gridPresetsDescription: "เลือกรูปแบบเริ่มต้นและดูตัวอย่างก่อนนำไปใช้",
+            .gridPresetCompact: "กะทัดรัด",
+            .gridPresetCompactDescription: "จัดสัดส่วนพื้นที่ให้เหมาะกับการใช้งานทั่วไป",
+            .gridPresetBalanced: "สมดุล",
+            .gridPresetBalancedDescription: "สมดุลระหว่างพื้นที่และจำนวนแอปที่มองเห็น",
+            .gridPresetLargeIcons: "ไอคอนขนาดใหญ่",
+            .gridPresetLargeIconsDescription: "แอปต่อหน้าน้อยลงและมีพื้นที่ให้ไอคอนมากขึ้น",
+            .gridPresetDenseWorkMode: "โหมดทำงานหนาแน่น",
+            .gridPresetDenseWorkModeDescription: "แสดงแอปได้มากขึ้น เหมาะกับ workflow ที่ต้องสลับหลายแอป",
+            .gridPresetApply: "ใช้รูปแบบนี้",
+            .gridPresetPreviewFormat: "ตัวอย่าง: %@ (%d × %d)",
             .addApp: "เพิ่มแอป",
             .resetApp: "รีเซ็ตแอป",
             .autoOrganizeApps: "จัดกลุ่มแอปอัตโนมัติ",

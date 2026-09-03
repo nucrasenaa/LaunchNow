@@ -138,6 +138,51 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
     }
 }
 
+private enum GridLayoutPreset: String, CaseIterable, Identifiable {
+    case compact
+    case balanced
+    case largeIcons
+    case denseWorkMode
+
+    var id: String { rawValue }
+
+    var columns: Int {
+        switch self {
+        case .compact: return 5
+        case .balanced: return 6
+        case .largeIcons: return 4
+        case .denseWorkMode: return 8
+        }
+    }
+
+    var rows: Int {
+        switch self {
+        case .compact: return 3
+        case .balanced: return 4
+        case .largeIcons: return 3
+        case .denseWorkMode: return 5
+        }
+    }
+
+    func title(_ localization: LocalizationManager) -> String {
+        switch self {
+        case .compact: return localization.text(.gridPresetCompact)
+        case .balanced: return localization.text(.gridPresetBalanced)
+        case .largeIcons: return localization.text(.gridPresetLargeIcons)
+        case .denseWorkMode: return localization.text(.gridPresetDenseWorkMode)
+        }
+    }
+
+    func description(_ localization: LocalizationManager) -> String {
+        switch self {
+        case .compact: return localization.text(.gridPresetCompactDescription)
+        case .balanced: return localization.text(.gridPresetBalancedDescription)
+        case .largeIcons: return localization.text(.gridPresetLargeIconsDescription)
+        case .denseWorkMode: return localization.text(.gridPresetDenseWorkModeDescription)
+        }
+    }
+}
+
 struct SettingsView: View {
     @ObservedObject var appStore: AppStore
     @ObservedObject private var localization = LocalizationManager.shared
@@ -164,6 +209,7 @@ struct SettingsView: View {
     // UI state
     @State private var selected: SettingsSection = .general
     @State private var selectedLanguage: AppLanguage = LocalizationManager.shared.language
+    @State private var pendingGridPreset: GridLayoutPreset?
 
     // App list search (Apps pane)
     @State private var appListSearchText: String = ""
@@ -660,6 +706,8 @@ struct SettingsView: View {
         )
 
         return VStack(alignment: .leading, spacing: 18) {
+            gridPresetsPanel
+
             HStack(alignment: .top, spacing: 18) {
                 VStack(alignment: .leading, spacing: 16) {
                     gridControl(
@@ -711,6 +759,145 @@ struct SettingsView: View {
                     .strokeBorder(SettingsSection.layout.tint.opacity(0.18))
             )
         }
+    }
+
+    private var gridPresetsPanel: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(localization.text(.gridPresets))
+                        .font(.headline)
+                    Text(localization.text(.gridPresetsDescription))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer()
+
+                if let pendingGridPreset {
+                    HStack(spacing: 8) {
+                        Button {
+                            appStore.gridColumns = pendingGridPreset.columns
+                            appStore.gridRows = pendingGridPreset.rows
+                            self.pendingGridPreset = nil
+                        } label: {
+                            Label(localization.text(.gridPresetApply), systemImage: "checkmark")
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        Button {
+                            self.pendingGridPreset = nil
+                        } label: {
+                            Text(localization.text(.cancel))
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+            }
+
+            LazyVGrid(
+                columns: [GridItem(.flexible()), GridItem(.flexible())],
+                spacing: 10
+            ) {
+                ForEach(GridLayoutPreset.allCases) { preset in
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.16)) {
+                            pendingGridPreset = preset
+                        }
+                    } label: {
+                        HStack(alignment: .top, spacing: 10) {
+                            gridPresetPreview(preset)
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(preset.title(localization))
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.primary)
+                                Text(preset.description(localization))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(2)
+                                Text("\(preset.columns) × \(preset.rows)")
+                                    .font(.caption.monospacedDigit())
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer(minLength: 0)
+
+                            if pendingGridPreset == preset {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(Color.accentColor)
+                            } else if isCurrentGridPreset(preset) {
+                                Image(systemName: "checkmark.circle")
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(10)
+                        .frame(maxWidth: .infinity, minHeight: 82, alignment: .leading)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(
+                                    pendingGridPreset == preset
+                                        ? Color.accentColor.opacity(0.12)
+                                        : Color.primary.opacity(0.06)
+                                )
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .stroke(
+                                    pendingGridPreset == preset
+                                        ? Color.accentColor.opacity(0.55)
+                                        : Color.primary.opacity(0.08),
+                                    lineWidth: 1
+                                )
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if let pendingGridPreset {
+                Label(
+                    localization.text(.gridPresetPreviewFormat, pendingGridPreset.title(localization), pendingGridPreset.columns, pendingGridPreset.rows),
+                    systemImage: "eye"
+                )
+                .font(.footnote)
+                .foregroundStyle(Color.accentColor)
+            }
+        }
+        .padding(14)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(SettingsSection.layout.tint.opacity(0.18))
+        )
+    }
+
+    private func isCurrentGridPreset(_ preset: GridLayoutPreset) -> Bool {
+        appStore.gridColumns == preset.columns && appStore.gridRows == preset.rows
+    }
+
+    private func gridPresetPreview(_ preset: GridLayoutPreset) -> some View {
+        let previewColumns = min(preset.columns, 8)
+        let previewRows = min(preset.rows, 5)
+
+        return VStack(spacing: 3) {
+            ForEach(0..<previewRows, id: \.self) { row in
+                HStack(spacing: 3) {
+                    ForEach(0..<previewColumns, id: \.self) { column in
+                        RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                            .fill(
+                                (row + column).isMultiple(of: 4)
+                                    ? SettingsSection.layout.tint
+                                    : Color.primary.opacity(0.22)
+                            )
+                    }
+                }
+            }
+        }
+        .frame(width: 68, height: 52)
+        .padding(6)
+        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
     }
 
     private func gridControl(title: String,

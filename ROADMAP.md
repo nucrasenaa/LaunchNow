@@ -87,7 +87,7 @@ Use this checklist to track future features. When the 2.0.0 roadmap is complete,
   - Search settings by keywords such as update, grid, shortcut, and backup.
   - Jump directly to the matching settings section.
 
-- [ ] 5. Advanced Grid Presets
+- [x] 5. Advanced Grid Presets
   - Add presets such as Compact, Balanced, Large Icons, and Dense Work Mode.
   - Show a preview before applying a preset.
 
